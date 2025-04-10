@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     'Compare diferentes opções de investimentos como CDB e LCI. Calcule rendimentos brutos e líquidos com base na taxa CDI atual.',
   keywords:
     'investimentos, CDB, LCI, comparação, renda fixa, CDI, simulador, calculadora, rendimento',
-  authors: [{ name: 'Comparador de Investimentos' }],
+  authors: [{ name: 'Gabriel Trzimajewski', url: 'https://snowye.dev' }],
   openGraph: {
     title: 'Comparador de Investimentos | CDB, LCI e outros',
     description:
