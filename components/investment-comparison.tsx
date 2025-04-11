@@ -140,7 +140,7 @@ export default function InvestmentComparison() {
 
           <Button
             variant='outline'
-            className='h-[300px] border-dashed border-neutral-700 flex flex-col gap-2 hover:border-neutral-500'
+            className='h-[300px] border-dashed border-neutral-200 dark:border-neutral-700 flex flex-col gap-2 hover:border-neutral-300 dark:hover:border-neutral-500'
             onClick={() => setShowAddForm(true)}
           >
             <Plus className='h-8 w-8' />

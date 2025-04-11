@@ -147,7 +147,7 @@ export default function AddInvestmentForm({
   };
 
   return (
-    <Card className='w-full max-w-2xl mx-auto border-neutral-800'>
+    <Card className='w-full max-w-2xl mx-auto border-neutral-200 dark:border-neutral-800'>
       <form onSubmit={handleSubmit}>
         <CardHeader>
           <CardTitle>Adicionar Novo Investimento</CardTitle>
@@ -163,7 +163,7 @@ export default function AddInvestmentForm({
                 onChange={e => handleChange('name', e.target.value)}
                 placeholder='ex: CDB Banco XYZ'
                 required
-                className='border-neutral-700 focus:border-neutral-500'
+                className='border-neutral-200 dark:border-neutral-700 focus:border-neutral-300 dark:focus:border-neutral-500'
               />
             </div>
 
@@ -200,7 +200,7 @@ export default function AddInvestmentForm({
                 step='any'
                 required
                 className={cn(
-                  'border-neutral-700 focus:border-neutral-500',
+                  'border-neutral-200 dark:border-neutral-700 focus:border-neutral-300 dark:focus:border-neutral-500',
                   amountError && 'border-red-500'
                 )}
               />
@@ -217,19 +217,19 @@ export default function AddInvestmentForm({
                   value={dateInputValue}
                   onChange={handleDateInputChange}
                   placeholder='DD/MM/AAAA'
-                  className='border-neutral-700 focus:border-neutral-500'
+                  className='border-neutral-200 dark:border-neutral-700 focus:border-neutral-300 dark:focus:border-neutral-500'
                 />
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
                       variant={'outline'}
-                      className='border-neutral-700 hover:border-neutral-500'
+                      className='border-neutral-200 dark:border-neutral-700 hover:border-neutral-300 dark:hover:border-neutral-500'
                       type='button'
                     >
                       <CalendarIcon className='h-4 w-4' />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className='w-auto p-0 border-neutral-700'>
+                  <PopoverContent className='w-auto p-0 border-neutral-200 dark:border-neutral-700'>
                     <Calendar
                       mode='single'
                       selected={investment.endDate}
@@ -251,7 +251,7 @@ export default function AddInvestmentForm({
                 type='button'
                 variant={investment.isPercentOfCDI ? 'outline' : 'default'}
                 className={cn(
-                  'border-neutral-700',
+                  'border-neutral-200 dark:border-neutral-700',
                   !investment.isPercentOfCDI && 'bg-primary',
                   investment.isPercentOfCDI && 'bg-transparent hover:bg-accent'
                 )}
@@ -263,7 +263,7 @@ export default function AddInvestmentForm({
                 type='button'
                 variant={investment.isPercentOfCDI ? 'default' : 'outline'}
                 className={cn(
-                  'border-neutral-700',
+                  'border-neutral-200 dark:border-neutral-700',
                   investment.isPercentOfCDI && 'bg-primary',
                   !investment.isPercentOfCDI && 'bg-transparent hover:bg-accent'
                 )}
@@ -290,7 +290,7 @@ export default function AddInvestmentForm({
               min='0.01'
               step='0.01'
               required
-              className='border-neutral-700 focus:border-neutral-500'
+              className='border-neutral-200 dark:border-neutral-700 focus:border-neutral-300 dark:focus:border-neutral-500'
             />
           </div>
 
@@ -307,7 +307,7 @@ export default function AddInvestmentForm({
                 type='number'
                 value={investment.ir}
                 readOnly
-                className='bg-neutral-900 border-neutral-700 cursor-not-allowed'
+                className='bg-neutral-100 dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700 cursor-not-allowed'
               />
               <p className='text-xs text-muted-foreground'>
                 Até 6 meses: 22,5%, Até 12 meses: 20%, Até 24 meses: 17,5%,
@@ -317,12 +317,12 @@ export default function AddInvestmentForm({
           )}
         </CardContent>
 
-        <CardFooter className='flex justify-between border-t border-neutral-800 pt-4'>
+        <CardFooter className='flex justify-between border-t border-neutral-200 dark:border-neutral-800 pt-4'>
           <Button
             type='button'
             variant='outline'
             onClick={onCancel}
-            className='border-neutral-700 hover:border-neutral-500'
+            className='border-neutral-200 dark:border-neutral-700 hover:border-neutral-300 dark:hover:border-neutral-500'
           >
             Cancelar
           </Button>

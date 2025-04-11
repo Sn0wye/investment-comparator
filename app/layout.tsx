@@ -9,7 +9,7 @@ const inter = Inter({ subsets: ['latin'] });
 export const metadata: Metadata = {
   title: 'Comparador de Investimentos | CDB, LCI, LCA',
   description:
-    'Compare diferentes opções de investimentos como CDB, LCI e LCA. Calcule rendimentos brutos e líquidos com base na taxa CDI atual.',
+    'Compare diferentes opções de investimentos como CDB, LCI, LCA. Calcule rendimentos brutos e líquidos com base na taxa CDI atual.',
   keywords:
     'investimentos, CDB, LCI, comparação, renda fixa, CDI, simulador, calculadora, rendimento',
   authors: [{ name: 'Gabriel Trzimajewski', url: 'https://snowye.dev' }],
@@ -28,13 +28,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang='pt-BR' suppressHydrationWarning>
-      <body className={`${inter.className} dark`}>
+      <body className={inter.className}>
         <ThemeProvider
           attribute='class'
           defaultTheme='dark'
-          enableSystem={false}
+          enableSystem
           disableTransitionOnChange
-          forcedTheme='dark'
         >
           {children}
         </ThemeProvider>
