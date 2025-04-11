@@ -1,6 +1,6 @@
 # Fixed Income Investment Comparison Tool
 
-A web application to compare different fixed income investment options in the Brazilian market, such as CDB and LCI, with automatic calculations of gross and net returns.
+A web application to compare different fixed income investment options in the Brazilian market, such as CDB and LCI/LCA, with automatic calculations of gross and net returns.
 
 ![Investment Comparison Tool](https://investment-comparator.vercel.app/)
 
@@ -67,7 +67,7 @@ pnpm run dev
 2. Fill in the information:
 
 3. Investment name
-4. Type (CDB or LCI)
+4. Type (CDB, LCI, LCA)
 5. Initial amount
 6. Maturity date
 7. Rate type (Fixed or Post-Fixed)
@@ -99,6 +99,10 @@ Fixed income security issued by banks as a form of raising funds. Subject to reg
 ### LCI (Real Estate Credit Letter)
 
 Fixed income security issued by financial institutions backed by real estate loans. Exempt from income tax for individuals in Brazil.
+
+### LCA (Agricultural Credit Letter)
+
+Fixed income security issued by financial institutions backed by agricultural loans. Exempt from income tax for individuals in Brazil.
 
 ### CDI (Interbank Deposit Certificate)
 

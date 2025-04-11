@@ -35,12 +35,12 @@ export default function InvestmentComparison() {
     {
       id: '2',
       name: 'LCI Imobiliário',
-      type: 'LCI',
+      type: 'LCI/LCA',
       rate: 95,
       isPercentOfCDI: true,
       amount: 10000,
       endDate: defaultEndDate,
-      ir: 0 // LCI is tax-free
+      ir: 0 // LCI/LCA is tax-free
     }
   ];
 
