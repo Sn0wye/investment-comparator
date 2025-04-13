@@ -4,6 +4,19 @@ import { useState, useEffect } from 'react';
 import { Plus } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle
+} from '@/components/ui/drawer';
+import { useMobile } from '@/hooks/use-mobile';
 import AppHeader from '@/components/app-header';
 import InvestmentCard from '@/components/investment-card';
 import AddInvestmentForm from '@/components/add-investment-form';
@@ -15,34 +28,12 @@ export default function InvestmentComparison() {
   const [cdiRate, setCdiRate] = useState<number | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [isClient, setIsClient] = useState(false);
+  const isMobile = useMobile();
 
-  // Set default end date to 1 year from now
+  // Set default dates
+  const today = new Date();
   const defaultEndDate = new Date();
   defaultEndDate.setFullYear(defaultEndDate.getFullYear() + 1);
-
-  // Default investments
-  const defaultInvestments: Investment[] = [
-    {
-      id: '1',
-      name: 'CDB Banco XYZ',
-      type: 'CDB',
-      rate: 110,
-      isPercentOfCDI: true,
-      amount: 10000,
-      endDate: defaultEndDate,
-      ir: 20 // IR for investments up to 12 months
-    },
-    {
-      id: '2',
-      name: 'LCI Imobiliário',
-      type: 'LCI/LCA',
-      rate: 95,
-      isPercentOfCDI: true,
-      amount: 10000,
-      endDate: defaultEndDate,
-      ir: 0 // LCI/LCA is tax-free
-    }
-  ];
 
   // Marque que estamos no cliente e inicialize os estados
   useEffect(() => {
@@ -69,15 +60,13 @@ export default function InvestmentComparison() {
         // Convert string dates back to Date objects
         const processedInvestments = parsedInvestments.map((inv: any) => ({
           ...inv,
+          purchaseDate: new Date(inv.purchaseDate || today),
           endDate: new Date(inv.endDate)
         }));
         setInvestments(processedInvestments);
       } catch (error) {
         console.error('Erro ao carregar investimentos:', error);
-        setInvestments(defaultInvestments);
       }
-    } else {
-      setInvestments(defaultInvestments);
     }
   }, []);
 
@@ -148,12 +137,32 @@ export default function InvestmentComparison() {
           </Button>
         </div>
 
-        {showAddForm && (
-          <AddInvestmentForm
-            onAdd={handleAddInvestment}
-            onCancel={() => setShowAddForm(false)}
-            cdiRate={cdiRate}
-          />
+        {isMobile ? (
+          <Drawer open={showAddForm} onOpenChange={setShowAddForm}>
+            <DrawerContent>
+              <DrawerHeader>
+                <DrawerTitle>Adicionar Novo Investimento</DrawerTitle>
+              </DrawerHeader>
+              <AddInvestmentForm
+                onAdd={handleAddInvestment}
+                onCancel={() => setShowAddForm(false)}
+                cdiRate={cdiRate}
+              />
+            </DrawerContent>
+          </Drawer>
+        ) : (
+          <Dialog open={showAddForm} onOpenChange={setShowAddForm}>
+            <DialogContent className='sm:max-w-[600px] p-0'>
+              <DialogHeader className='px-6 pt-6'>
+                <DialogTitle>Adicionar Novo Investimento</DialogTitle>
+              </DialogHeader>
+              <AddInvestmentForm
+                onAdd={handleAddInvestment}
+                onCancel={() => setShowAddForm(false)}
+                cdiRate={cdiRate}
+              />
+            </DialogContent>
+          </Dialog>
         )}
       </div>
     </div>

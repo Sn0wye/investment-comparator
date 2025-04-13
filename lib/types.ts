@@ -5,6 +5,7 @@ export interface Investment {
   rate: number;
   isPercentOfCDI: boolean;
   amount: number;
+  purchaseDate: Date;
   endDate: Date;
   ir: number;
 }
