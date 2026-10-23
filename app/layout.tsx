@@ -1,43 +1,23 @@
-import type React from 'react';
-import '@/app/globals.css';
-import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
-import { ThemeProvider } from '@/components/theme-provider';
-
-const inter = Inter({ subsets: ['latin'] });
-
+import type { Metadata } from "next";
+import "./globals.css";
 export const metadata: Metadata = {
-  title: 'Comparador de Investimentos | CDB, LCI, LCA',
+  title: "Rende | Comparador de investimentos",
   description:
-    'Compare diferentes opções de investimentos como CDB, LCI, LCA. Calcule rendimentos brutos e líquidos com base na taxa CDI atual.',
-  keywords:
-    'investimentos, CDB, LCI, comparação, renda fixa, CDI, simulador, calculadora, rendimento',
-  authors: [{ name: 'Gabriel Trzimajewski', url: 'https://snowye.dev' }],
+    "Compare CDB, LCI e LCA pelo rendimento líquido. Simule prazos, taxas e impostos em uma comparação simples, salva no seu navegador.",
   openGraph: {
-    title: 'Comparador de Investimentos | CDB, LCI, LCA',
+    title: "Rende | Comparador de investimentos",
     description:
-      'Compare diferentes opções de investimentos como CDB, LCI, LCA. Calcule rendimentos brutos e líquidos.',
-    type: 'website'
-  }
+      "Veja quanto fica com você. Compare renda fixa depois dos impostos.",
+    locale: "pt_BR",
+    type: "website",
+  },
 };
-
 export default function RootLayout({
-  children
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+  children,
+}: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang='pt-BR' suppressHydrationWarning>
-      <body className={inter.className}>
-        <ThemeProvider
-          attribute='class'
-          defaultTheme='dark'
-          enableSystem
-          disableTransitionOnChange
-        >
-          {children}
-        </ThemeProvider>
-      </body>
+    <html lang="pt-BR">
+      <body>{children}</body>
     </html>
   );
 }

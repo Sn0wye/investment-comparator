@@ -1,119 +1,74 @@
-# Fixed Income Investment Comparison Tool
+# Rende
 
-A web application to compare different fixed income investment options in the Brazilian market, such as CDB and LCI/LCA, with automatic calculations of gross and net returns.
+A Portuguese-language fixed-income comparator for CDB and LCI/LCA. Compare estimated net returns, edit or duplicate offers, apply a shared scenario, inspect a growth chart, and export CSV. No account or backend is required.
 
-![Investment Comparison Tool](https://investment-comparator.vercel.app/)
+## Development
 
-## 🌟 Features
+Requires Node.js 22+ and pnpm 9.15.
 
-- **Investment Comparison**: Compare different types of investments side by side
-- **Automatic Calculations**: View gross and net returns based on provided rates
-- **Flexible Rate Types**: Support for fixed-rate and post-fixed (% of CDI) investments
-- **Tax Calculation**: Automatic income tax calculation based on investment duration
-- **Data Persistence**: Your investments are automatically saved in the browser
-- **Customizable CDI Rate**: Update the reference CDI rate as needed
-- **Responsive Interface**: Works on mobile devices, tablets, and desktops
-- **Dark Theme**: Dark-themed interface to reduce eye strain
-
-## 🚀 Technologies Used
-
-- [Next.js 14](https://nextjs.org/) - React framework with hybrid rendering
-- [React](https://reactjs.org/) - JavaScript library for user interfaces
-- [TypeScript](https://www.typescriptlang.org/) - Typed JavaScript superset
-- [Tailwind CSS](https://tailwindcss.com/) - Utility-first CSS framework
-- [Shadcn/UI](https://ui.shadcn.com/) - Reusable UI components
-- [date-fns](https://date-fns.org/) - Date manipulation library
-- [LocalStorage API](https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage) - For browser data persistence
-
-## 📋 Prerequisites
-
-- Node.js 18.17.0 or higher
-- npm or yarn
-
-## 🔧 Installation
-
-1. Clone the repository:
-
-```bash
-git clone https://github.com/Sn0wye/investment-comparison.git
-cd investment-comparison
+```sh
+pnpm install --frozen-lockfile
+pnpm dev
 ```
 
-2. Install dependencies:
+## Production
 
-```shellscript
-pnpm install
+```sh
+pnpm build
+pnpm start
 ```
 
-3. Run the development server:
+Next.js 16 App Router exports the site to `out/`. `pnpm start` serves that directory on port 3000. Deploy `out/` on any static host with directory index support, or use Vercel's Next.js preset. There is no runtime Next.js server, database, API key, or environment variable to configure.
 
-```shellscript
-pnpm run dev
+The page, examples, results, and SVG chart are rendered at build time. The example application date is the build date and is editable. JavaScript enables editing and restores browser-local data after hydration. Without JavaScript the example comparison and methodology remain readable. Fonts use the system stack; no remote font fetch is required. The offer dialog is loaded on demand, and reduced-motion preferences disable CSS animation.
+
+## Checks
+
+```sh
+pnpm test
+pnpm build
+pnpm typecheck
+pnpm check:static
+pnpm format:check
 ```
 
-4. Open [http://localhost:3000](http://localhost:3000) in your browser.
+CI runs these checks. `check:static` verifies meaningful prerendered content, local assets, and a 220 KiB gzip budget for initial HTML, JavaScript, and CSS. This is a build-artifact budget, not a field performance measurement. To audit a production build locally:
 
-## 📊 How to Use
+```sh
+pnpm start
+# In another terminal, with Chrome installed:
+pnpm dlx lighthouse http://localhost:3000 --chrome-flags="--headless" --view
+```
 
-### Viewing Investments
+## Structure
 
-- Investment cards show detailed information about each option
-- Compare gross and net values side by side
-- See duration automatically calculated based on the maturity date
+- `app/page.tsx`: static page, navigation, and calculation methodology.
+- `components/investment-comparison.tsx`: scenario controls, ranking, browser persistence, and CSV export.
+- `components/offer-dialog.tsx`: native modal with validation and focus management.
+- `components/growth-chart.tsx`: accessible SVG projections without a chart dependency.
+- `lib/calculations.ts`: pure date, compound-return, IR, and IOF calculations.
+- `lib/storage.ts`: validated storage format and migration from the previous app.
 
-### Adding New Investments
+## Calculation assumptions
 
-1. Click the "Add Investment" button
-2. Fill in the information:
+This is an educational estimate for individuals, not an offer feed or investment recommendation. The initial 12% CDI is a hypothetical editable scenario, not a live quote.
 
-3. Investment name
-4. Type (CDB, LCI, LCA)
-5. Initial amount
-6. Maturity date
-7. Rate type (Fixed or Post-Fixed)
-8. Rate (% per year or % of CDI)
+- Single contribution, constant interest, no fees or inflation adjustment.
+- Fixed annual rates are converted to daily rates using 252 business days/year.
+- CDI percentages multiply the equivalent daily CDI rate, then compound.
+- Business days are approximated as calendar days × 252 / 365. Holidays are not modeled.
+- IR on CDB earnings uses exact calendar-day brackets: 22.5% through 180 days, 20% through 360, 17.5% through 720, and 15% thereafter.
+- CDB redemption before 30 days deducts regressive IOF before calculating IR.
+- LCI/LCA are modeled as exempt from IR for individuals.
+- Every offer uses its full purchase-to-maturity period, including imported historical purchases. The chart shows estimated net gains if redeemed at each elapsed day, ending at that offer's maturity. It does not imply early-redemption availability.
+- A leading option is highlighted only when principal, purchase date, and maturity match. Differing scenarios show a warning and sort by absolute net gain.
 
-9. Click "Add Investment"
+Sources: [CAIXA's taxation explanation](https://www.caixa.gov.br/voce/poupanca-e-investimentos/tesouro-direto/Paginas/default.aspx) and [B3's 2026 LCI/LCA exemption explanation](https://borainvestir.b3.com.br/tipos-de-investimentos/renda-fixa/lci-lca-e-lc/investimentos-isentos-como-declarar-lci-e-lca-corretamente-no-imposto-de-renda-2026/). Review tax assumptions when regulations change.
 
-### Adjusting the CDI Rate
+## Browser data and rollback
 
-1. Click the edit icon next to the current CDI rate
-2. Enter the new value
-3. Click "Save"
+The versioned key is `investment-comparator:v1`. On the first visit, existing `investments` and `cdiRate` keys are validated and migrated, preserving each offer's amount, rate, and dates. The legacy keys are never deleted or overwritten. The new format supports up to 12 options.
 
-### Removing Investments
+Malformed or unsupported saved data remains untouched. In that case the UI explains that it is using unsaved examples; export remains available. Storage quota failures also show an unsaved status. No simulation data is sent to a server. Clearing site storage removes saved comparisons.
 
-- Click the "X" in the top right corner of any investment card
-
-## 📘 Financial Concepts
-
-### CDB (Certificate of Bank Deposit)
-
-Fixed income security issued by banks as a form of raising funds. Subject to regressive income tax based on duration:
-
-- Up to 6 months: 22.5%
-- 6 to 12 months: 20%
-- 12 to 24 months: 17.5%
-- Above 24 months: 15%
-
-### LCI (Real Estate Credit Letter)
-
-Fixed income security issued by financial institutions backed by real estate loans. Exempt from income tax for individuals in Brazil.
-
-### LCA (Agricultural Credit Letter)
-
-Fixed income security issued by financial institutions backed by agricultural loans. Exempt from income tax for individuals in Brazil.
-
-### CDI (Interbank Deposit Certificate)
-
-Reference rate in the Brazilian financial market, very close to the Selic rate. Used as a basis for post-fixed investments.
-
-## 🤝 Contributing
-
-Contributions are welcome! Feel free to open issues or submit pull requests.
-
-1. Fork the project
-2. Create your feature branch (`git checkout -b feature/new-feature`)
-3. Commit your changes (`git commit -m 'Add new feature'`)
-4. Push to the branch (`git push origin feature/new-feature`)
-5. Open a Pull Request
+Reverting the deployment restores the old application and its legacy data. Changes made in the new UI are not copied back to the legacy format.
