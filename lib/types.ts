@@ -1,19 +1,18 @@
 export interface Investment {
   id: string;
   name: string;
-  type: 'CDB' | 'LCI/LCA';
+  type: "CDB" | "LCI/LCA";
   rate: number;
   isPercentOfCDI: boolean;
   amount: number;
-  purchaseDate: Date;
-  endDate: Date;
-  ir: number;
+  purchaseDate: string;
+  endDate: string;
 }
-
-export interface InvestmentReturns {
-  grossValue: number;
-  liquidValue: number;
-  grossReturn: number;
-  liquidReturn: number;
+export interface Scenario {
+  version: 1;
+  investments: Investment[];
+  cdiRate: number;
+  amount: number;
   months: number;
+  startDate: string;
 }

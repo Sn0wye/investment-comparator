@@ -1,60 +1,65 @@
-import type { Investment, InvestmentReturns } from './types';
-
+import type { Investment } from "./types";
+const DAY = 86_400_000;
+export const money = (value: number) =>
+  value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+export const percent = (value: number) =>
+  `${value.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%`;
+export function daysBetween(start: string, end: string) {
+  return Math.round(
+    (Date.parse(`${end}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`)) / DAY,
+  );
+}
+export function addMonths(date: string, months: number) {
+  const start = new Date(`${date}T00:00:00Z`);
+  const target = new Date(start);
+  target.setUTCDate(1);
+  target.setUTCMonth(target.getUTCMonth() + months);
+  const lastDay = new Date(target);
+  lastDay.setUTCMonth(lastDay.getUTCMonth() + 1, 0);
+  target.setUTCDate(Math.min(start.getUTCDate(), lastDay.getUTCDate()));
+  return target.toISOString().slice(0, 10);
+}
+export function calculateIRRate(days: number): number {
+  if (days <= 180) return 22.5;
+  if (days <= 360) return 20;
+  if (days <= 720) return 17.5;
+  return 15;
+}
+// IOF percentage of earnings, applied before income tax.
+const IOF = [
+  100, 96, 93, 90, 86, 83, 80, 76, 73, 70, 66, 63, 60, 56, 53, 50, 46, 43, 40,
+  36, 33, 30, 26, 23, 20, 16, 13, 10, 6, 3,
+];
 export function calculateInvestmentReturns(
   investment: Investment,
-  cdiRate: number
-): InvestmentReturns {
-  // Calculate months between now and end date
-  const today = new Date();
-  const endDate = new Date(investment.endDate);
-  const months = Math.max(
-    1,
-    Math.ceil(
-      (endDate.getFullYear() - today.getFullYear()) * 12 +
-        (endDate.getMonth() - today.getMonth()) +
-        (endDate.getDate() >= today.getDate() ? 0 : -1)
-    )
-  );
-
-  // Calculate the effective annual rate
-  let annualRate: number;
-
-  if (investment.isPercentOfCDI) {
-    // If rate is a percentage of CDI
-    annualRate = (investment.rate / 100) * cdiRate;
-  } else {
-    // If rate is a direct percentage
-    annualRate = investment.rate;
-  }
-
-  // Convert annual rate to monthly rate
-  const monthlyRate = Math.pow(1 + annualRate / 100, 1 / 12) - 1;
-
-  // Calculate gross future value using compound interest formula
-  const grossValue = investment.amount * Math.pow(1 + monthlyRate, months);
-  const grossReturn = grossValue - investment.amount;
-
-  // Calculate income tax on returns (if applicable)
-  const taxAmount =
-    investment.type === 'LCI/LCA' ? 0 : grossReturn * (investment.ir / 100);
-
-  // Calculate liquid value and return
-  const liquidValue = grossValue - taxAmount;
-  const liquidReturn = liquidValue - investment.amount;
-
+  cdiRate: number,
+  elapsedDays?: number,
+) {
+  const days =
+    elapsedDays ?? daysBetween(investment.purchaseDate, investment.endDate);
+  // Constant-rate estimate: 252 business days/year, approximated by days * 252/365.
+  const dailyRate = investment.isPercentOfCDI
+    ? ((Math.pow(1 + cdiRate / 100, 1 / 252) - 1) * investment.rate) / 100
+    : Math.pow(1 + investment.rate / 100, 1 / 252) - 1;
+  const grossValue =
+    investment.amount * Math.pow(1 + dailyRate, (days * 252) / 365);
+  const grossReturn = Math.max(0, grossValue - investment.amount);
+  const irRate = investment.type === "CDB" ? calculateIRRate(days) : 0;
+  const iofAmount =
+    investment.type === "CDB" && days < 30
+      ? (grossReturn * IOF[Math.max(0, days)]) / 100
+      : 0;
+  const taxAmount = ((grossReturn - iofAmount) * irRate) / 100;
+  const liquidReturn = grossReturn - taxAmount - iofAmount;
   return {
+    days,
     grossValue,
-    liquidValue,
     grossReturn,
+    irRate,
+    taxAmount,
+    iofAmount,
     liquidReturn,
-    months
+    liquidValue: investment.amount + liquidReturn,
+    netPercent: (liquidReturn / investment.amount) * 100,
   };
-}
-
-// Calculate IR rate based on investment duration in months
-export function calculateIRRate(months: number): number {
-  if (months <= 6) return 22.5;
-  if (months <= 12) return 20;
-  if (months <= 24) return 17.5;
-  return 15;
 }
