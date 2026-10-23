@@ -25,6 +25,7 @@ The page, examples, results, and SVG chart are rendered at build time. The examp
 ## Checks
 
 ```sh
+pnpm audit
 pnpm test
 pnpm build
 pnpm typecheck
@@ -39,6 +40,14 @@ pnpm start
 # In another terminal, with Chrome installed:
 pnpm dlx lighthouse http://localhost:3000 --chrome-flags="--headless" --view
 ```
+
+## Dependency security
+
+Next.js is pinned to the latest stable release verified on 2026-10-23, `16.4.3`. React and React DOM use `19.3.1` or compatible patches. Node types stay on the latest Node 22 release to match CI.
+
+Two targeted pnpm overrides enforce patched transitive dependencies: `source-map-js` 1.2.2 for [GHSA-68fv-2mgg-jv7q](https://github.com/advisories/GHSA-68fv-2mgg-jv7q), and `compression` 1.8.2 under `serve` for [GHSA-vc2v-76pw-4v95](https://github.com/advisories/GHSA-vc2v-76pw-4v95). The latter is needed because the latest `serve` still pins 1.8.1. Remove these overrides when upstream dependencies resolve patched versions themselves.
+
+CI runs `pnpm audit` against all dependencies, including development tools, and fails on reported vulnerabilities. A clean audit covers known registry advisories at the time of the check; it is not a guarantee against undiscovered vulnerabilities.
 
 ## Structure
 
