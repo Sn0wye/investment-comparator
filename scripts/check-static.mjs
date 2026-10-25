@@ -4,7 +4,7 @@ import { gzipSync } from "node:zlib";
 
 const html = await readFile("out/index.html", "utf8");
 assert.ok(
-  html.includes("O que rende mais"),
+  html.includes("Compare investimentos"),
   "Headline must exist before hydration",
 );
 assert.ok(html.includes("LCI / LCA"), "Comparison must exist before hydration");

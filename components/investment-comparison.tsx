@@ -4,13 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import {
   ArrowDownToLine,
-  ArrowUpRight,
-  Check,
   ChevronDown,
-  CircleHelp,
   Copy,
   Plus,
-  SlidersHorizontal,
   Trash2,
   Pencil,
   RotateCcw,
@@ -27,12 +23,12 @@ import {
   MAX_OFFERS,
   STORAGE_KEY,
   createScenario,
-  isDate,
   migrateLegacy,
   parseScenario,
 } from "@/lib/storage";
 import type { Investment, Scenario } from "@/lib/types";
-import GrowthChart, { COLORS } from "./growth-chart";
+import GrowthChart from "./growth-chart";
+import ScenarioForm from "./scenario-form";
 
 const OfferDialog = dynamic(() => import("./offer-dialog"));
 
@@ -45,7 +41,7 @@ export default function InvestmentComparison({
   const [ready, setReady] = useState(false);
   const [canSave, setCanSave] = useState(false);
   const [notice, setNotice] = useState("");
-  const [saveStatus, setSaveStatus] = useState("Salvo neste navegador");
+  const [saveStatus, setSaveStatus] = useState("");
   const [editing, setEditing] = useState<{
     investment: Investment;
     isNew: boolean;
@@ -91,15 +87,14 @@ export default function InvestmentComparison({
     if (!ready || !canSave) return;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(scenario));
-      setSaveStatus("Salvo neste navegador");
+      setSaveStatus("");
     } catch {
       setSaveStatus("Não salvo: armazenamento indisponível");
     }
   }, [scenario, ready, canSave]);
 
-  const results = scenario.investments.map((investment, index) => ({
+  const results = scenario.investments.map((investment) => ({
     investment,
-    color: COLORS[index % COLORS.length],
     ...calculateInvestmentReturns(investment, scenario.cdiRate),
   }));
   const ranked = [...results].sort((a, b) => b.liquidReturn - a.liquidReturn);
@@ -109,7 +104,6 @@ export default function InvestmentComparison({
       r.investment.purchaseDate === results[0].investment.purchaseDate &&
       r.investment.endDate === results[0].investment.endDate,
   );
-  const best = ranked[0];
   const tied =
     ranked.length > 1 &&
     Math.abs(ranked[0].liquidReturn - ranked[1].liquidReturn) < 0.01;
@@ -117,8 +111,8 @@ export default function InvestmentComparison({
     scenario.investments.length > 0 &&
     scenario.investments.every((i) => i.id.startsWith("example-"));
 
-  function openEditor(investment?: Investment) {
-    returnFocus.current = document.activeElement as HTMLElement;
+  function openEditor(investment?: Investment, trigger?: HTMLElement) {
+    returnFocus.current = trigger ?? (document.activeElement as HTMLElement);
     setEditing({
       isNew: !investment,
       investment: investment ?? {
@@ -194,212 +188,68 @@ export default function InvestmentComparison({
   return (
     <section
       id="simulador"
+      tabIndex={-1}
       aria-label="Simulador de renda fixa"
       className="simulator"
     >
-      <div className="workspace-toolbar">
-        <span>
-          <span className="status-dot" />
-          Sua simulação <span className="toolbar-divider">/</span>{" "}
-          <span className="muted">Renda fixa</span>
-        </span>
-        <div>
-          <span className="save-status">
-            <Check size={13} />
-            {saveStatus}
-          </span>
-          <button
-            className="icon-button"
-            aria-label={dark ? "Ativar tema claro" : "Ativar tema escuro"}
-            onClick={() => {
-              const next = !dark;
-              setDark(next);
-              document.documentElement.dataset.theme = next ? "dark" : "light";
-              try {
-                localStorage.setItem("rende-theme", next ? "dark" : "light");
-              } catch {
-                /* Theme remains usable without storage. */
-              }
-            }}
-          >
-            {dark ? <Sun size={17} /> : <Moon size={17} />}
-          </button>
-        </div>
-      </div>
       <div className="workspace-grid">
-        <aside className="scenario-panel">
-          <div className="panel-title">
-            <SlidersHorizontal size={18} />
-            <h2>Seu cenário</h2>
-          </div>
-          <p className="panel-description">
-            O mesmo ponto de partida
-            <br />
-            para todas as opções.
-          </p>
-          <form
-            key={`${scenario.amount}-${scenario.months}-${scenario.startDate}-${scenario.cdiRate}`}
-            onSubmit={(event) => {
-              event.preventDefault();
-              const data = new FormData(event.currentTarget);
-              const amount = Number(data.get("amount")),
-                months = Number(data.get("months")),
-                cdiRate = Number(data.get("cdi")),
-                startDate = String(data.get("startDate"));
-              if (
-                !Number.isFinite(amount) ||
-                amount < 0.01 ||
-                amount > 1e9 ||
-                !Number.isInteger(months) ||
-                months < 1 ||
-                months > 360 ||
-                !Number.isFinite(cdiRate) ||
-                cdiRate < 0 ||
-                cdiRate > 100 ||
-                !isDate(startDate)
-              )
-                return;
-              const endDate = addMonths(startDate, months);
-              setScenario((s) => ({
-                ...s,
-                amount,
-                months,
-                cdiRate,
-                startDate,
-                investments: s.investments.map((i) => ({
-                  ...i,
-                  amount,
-                  purchaseDate: startDate,
-                  endDate,
-                })),
-              }));
-              setNotice("Cenário aplicado a todas as opções.");
+        <aside className="scenario-panel" aria-labelledby="scenario-title">
+          <h2 id="scenario-title">Sua simulação</h2>
+          <ScenarioForm
+            scenario={scenario}
+            ready={ready}
+            onApply={(next) => {
+              setScenario(next);
+              setNotice(
+                `Simulação atualizada: ${money(next.amount)} por ${next.months} meses. Confira os valores líquidos.`,
+              );
             }}
-          >
-            <label className="field">
-              Quanto você quer investir?
-              <span className="input-affix">
-                <span>R$</span>
-                <input
-                  name="amount"
-                  aria-label="Valor para investir"
-                  type="number"
-                  min="0.01"
-                  max="1000000000"
-                  step="0.01"
-                  defaultValue={scenario.amount}
-                  required
-                />
-              </span>
-            </label>
-            <label className="field">
-              Por quanto tempo?
-              <span className="input-affix suffix">
-                <input
-                  name="months"
-                  aria-label="Prazo em meses"
-                  type="number"
-                  min="1"
-                  max="360"
-                  step="1"
-                  defaultValue={scenario.months}
-                  required
-                />
-                <span>meses</span>
-              </span>
-            </label>
-            <div className="term-shortcuts">
-              {[6, 12, 24, 36].map((months) => (
-                <button
-                  key={months}
-                  type="button"
-                  onClick={(event) => {
-                    const input = event.currentTarget.form?.elements.namedItem(
-                      "months",
-                    ) as HTMLInputElement;
-                    input.value = String(months);
-                    input.focus();
-                  }}
-                >
-                  {months}m
-                </button>
-              ))}
-            </div>
-            <label className="field">
-              Data da aplicação
-              <input
-                type="date"
-                name="startDate"
-                defaultValue={scenario.startDate}
-                required
-                max="9900-12-31"
-              />
-            </label>
-            <div className="cdi-field">
-              <label className="field">
-                CDI para simular
-                <span className="input-affix suffix">
-                  <input
-                    name="cdi"
-                    aria-label="CDI anual para simular"
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.01"
-                    defaultValue={scenario.cdiRate}
-                    required
-                  />
-                  <span>% a.a.</span>
-                </span>
-              </label>
-              <p className="field-help">
-                Taxa hipotética e constante.
-                <br />
-                Não é uma cotação em tempo real.
-              </p>
-            </div>
-            <button
-              className="button primary apply-button"
-              type="submit"
-              disabled={!ready}
-            >
-              Aplicar cenário <ArrowUpRight size={17} />
-            </button>
-          </form>
-          <div className="scenario-tip">
-            <CircleHelp size={18} />
-            <p>
-              Uma LCI com taxa menor pode render mais que um CDB. O imposto faz
-              diferença.
-            </p>
-          </div>
+          />
         </aside>
-        <div className="comparison-panel">
+        <section
+          className="comparison-panel"
+          aria-labelledby="comparison-title"
+        >
           <div className="comparison-heading">
-            <div>
-              <h2>
-                Compare o que fica com você
-                <span className="count-badge">{results.length}</span>
-              </h2>
-              <p>
-                {examples
-                  ? "Comece com estes exemplos ou adicione suas opções."
-                  : "Valores estimados no vencimento, depois dos impostos."}
-              </p>
-            </div>
+            <h2 id="comparison-title">Valor líquido no vencimento</h2>
             <button
-              className="button secondary export-button"
-              onClick={exportCsv}
-              disabled={!results.length}
+              className="icon-button"
+              aria-label={dark ? "Ativar tema claro" : "Ativar tema escuro"}
+              onClick={() => {
+                const next = !dark;
+                setDark(next);
+                document.documentElement.dataset.theme = next
+                  ? "dark"
+                  : "light";
+                try {
+                  localStorage.setItem("rende-theme", next ? "dark" : "light");
+                } catch {
+                  /* Theme works without storage. */
+                }
+              }}
             >
-              <ArrowDownToLine size={15} />
-              Exportar
+              {dark ? (
+                <Sun aria-hidden="true" size={20} />
+              ) : (
+                <Moon aria-hidden="true" size={20} />
+              )}
             </button>
           </div>
-          <div className="notice" role="status" aria-live="polite">
-            {notice}
+          {examples && (
+            <p className="example-note">
+              Opções de exemplo. Edite as taxas ou adicione a sua.
+            </p>
+          )}
+          <p className="storage-warning" role="status" aria-atomic="true">
+            {saveStatus}
+          </p>
+          <div className="notice">
+            <p role="status" aria-atomic="true">
+              {notice}
+            </p>
             {removed && (
               <button
+                className="text-button"
                 onClick={() => {
                   setScenario((s) => ({
                     ...s,
@@ -410,142 +260,112 @@ export default function InvestmentComparison({
                 }}
                 disabled={results.length >= MAX_OFFERS}
               >
-                Desfazer
+                Desfazer remoção
               </button>
             )}
           </div>
           {!comparable && (
             <p className="comparison-warning">
-              As opções têm valores ou datas diferentes. Aplique um cenário
-              comum para comparar em igualdade. A ordem abaixo considera apenas
-              o ganho em reais.
+              Valores ou datas diferentes. Use “Aplicar a todas” para comparar
+              nas mesmas condições. A ordem considera o ganho em reais.
             </p>
           )}
-          {best && comparable && (
-            <div className="result-banner">
-              <span className="result-symbol">
-                <ArrowUpRight size={25} />
-              </span>
-              <div>
-                <p>
-                  {results.length === 1
-                    ? "Resultado da sua opção"
-                    : tied
-                      ? "As primeiras opções empatam"
-                      : "Maior ganho líquido neste cenário"}
-                </p>
-                <strong>{best.investment.name}</strong>
-                <span className="result-context">
-                  {results.length > 1 && !tied
-                    ? `${money(best.liquidReturn - ranked[1].liquidReturn)} a mais que a próxima opção`
-                    : `${best.days} dias de investimento`}
-                </span>
-              </div>
-              <div className="result-value">
-                <span>Ganho líquido</span>
-                <strong>+ {money(best.liquidReturn)}</strong>
-                <span>{percent(best.netPercent)} no período</span>
-              </div>
-            </div>
+          {tied && comparable && (
+            <p className="example-note">
+              As primeiras opções têm o mesmo ganho líquido.
+            </p>
           )}
           {results.length ? (
-            <>
-              <div className="offers-header">
-                <span>Opção / rentabilidade</span>
-                <span>Você recebe</span>
-              </div>
-              <div className="offers-list">
-                {ranked.map((result, index) => (
-                  <article
-                    className={`offer-row ${index === 0 && comparable && results.length > 1 && !tied ? "leading-offer" : ""}`}
-                    key={result.investment.id}
-                  >
-                    <div className="offer-main">
-                      <div className="offer-identity">
-                        <span
-                          className="offer-swatch"
-                          style={{ background: result.color }}
-                        />
-                        <div>
-                          <h3>{result.investment.name}</h3>
-                          <p>
-                            {percent(result.investment.rate)}{" "}
-                            {result.investment.isPercentOfCDI
-                              ? "do CDI"
-                              : "ao ano"}
-                            <span className="tag">
-                              {result.investment.type === "CDB"
-                                ? `IR ${percent(result.irRate)}`
-                                : "Isento de IR"}
-                            </span>
-                          </p>
-                        </div>
-                      </div>
-                      <div className="offer-value">
-                        <strong>{money(result.liquidValue)}</strong>
-                        <span>+ {money(result.liquidReturn)} líquidos</span>
-                      </div>
+            <div className="offers-list">
+              {ranked.map((result, index) => (
+                <article
+                  className="offer-row"
+                  key={result.investment.id}
+                  aria-labelledby={`offer-${result.investment.id}`}
+                >
+                  <div className="offer-main">
+                    <div className="offer-identity">
+                      <h3 id={`offer-${result.investment.id}`}>
+                        {result.investment.name}
+                      </h3>
+                      <p>
+                        {percent(result.investment.rate)}{" "}
+                        {result.investment.isPercentOfCDI ? "do CDI" : "ao ano"}
+                      </p>
+                      {index === 0 &&
+                        comparable &&
+                        results.length > 1 &&
+                        !tied && (
+                          <span className="best-label">
+                            Maior ganho líquido
+                          </span>
+                        )}
                     </div>
-                    <div className="offer-bottom">
-                      <details>
-                        <summary>
-                          Ver composição <ChevronDown size={13} />
-                        </summary>
-                        <dl className="breakdown">
-                          <div>
-                            <dt>Valor aplicado</dt>
-                            <dd>{money(result.investment.amount)}</dd>
-                          </div>
-                          <div>
-                            <dt>Ganho bruto</dt>
-                            <dd>{money(result.grossReturn)}</dd>
-                          </div>
-                          <div>
-                            <dt>Imposto de renda</dt>
-                            <dd>− {money(result.taxAmount)}</dd>
-                          </div>
-                          <div>
-                            <dt>IOF</dt>
-                            <dd>− {money(result.iofAmount)}</dd>
-                          </div>
-                          <div>
-                            <dt>Prazo</dt>
-                            <dd>{result.days} dias</dd>
-                          </div>
-                          <div>
-                            <dt>Ganho líquido</dt>
-                            <dd>{percent(result.netPercent)}</dd>
-                          </div>
-                          <div>
-                            <dt>Aplicação / vencimento</dt>
-                            <dd>
-                              {result.investment.purchaseDate
-                                .split("-")
-                                .reverse()
-                                .join("/")}{" "}
-                              /{" "}
-                              {result.investment.endDate
-                                .split("-")
-                                .reverse()
-                                .join("/")}
-                            </dd>
-                          </div>
-                        </dl>
-                      </details>
-                      <div className="offer-actions">
+                    <div className="offer-value">
+                      <strong>
+                        <span className="sr-only">Valor líquido: </span>
+                        {money(result.liquidValue)}
+                      </strong>
+                      <span>Ganho de {money(result.liquidReturn)}</span>
+                    </div>
+                  </div>
+                  <div className="offer-bottom">
+                    <details className="offer-details">
+                      <summary>
+                        Detalhes
+                        <span className="sr-only">
+                          {" "}
+                          de {result.investment.name}
+                        </span>
+                        <ChevronDown size={16} aria-hidden="true" />
+                      </summary>
+                      <dl className="breakdown">
+                        <div>
+                          <dt>Valor aplicado</dt>
+                          <dd>{money(result.investment.amount)}</dd>
+                        </div>
+                        <div>
+                          <dt>Ganho bruto</dt>
+                          <dd>{money(result.grossReturn)}</dd>
+                        </div>
+                        <div>
+                          <dt>Imposto de renda ({percent(result.irRate)})</dt>
+                          <dd>{money(result.taxAmount)}</dd>
+                        </div>
+                        <div>
+                          <dt>IOF</dt>
+                          <dd>{money(result.iofAmount)}</dd>
+                        </div>
+                        <div>
+                          <dt>Prazo</dt>
+                          <dd>{result.days} dias</dd>
+                        </div>
+                        <div>
+                          <dt>Ganho líquido</dt>
+                          <dd>{percent(result.netPercent)}</dd>
+                        </div>
+                        <div>
+                          <dt>Aplicação</dt>
+                          <dd>
+                            {result.investment.purchaseDate
+                              .split("-")
+                              .reverse()
+                              .join("/")}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>Vencimento</dt>
+                          <dd>
+                            {result.investment.endDate
+                              .split("-")
+                              .reverse()
+                              .join("/")}
+                          </dd>
+                        </div>
+                      </dl>
+                      <div className="detail-actions">
                         <button
-                          className="icon-button"
-                          aria-label={`Editar ${result.investment.name}`}
-                          title="Editar"
-                          onClick={() => openEditor(result.investment)}
-                          disabled={!ready}
-                        >
-                          <Pencil size={14} />
-                        </button>
-                        <button
-                          className="icon-button"
-                          aria-label={`Duplicar ${result.investment.name}`}
-                          title="Duplicar"
+                          className="text-button"
                           disabled={!ready || results.length >= MAX_OFFERS}
                           onClick={() => {
                             setScenario((s) => ({
@@ -564,12 +384,15 @@ export default function InvestmentComparison({
                             );
                           }}
                         >
-                          <Copy size={14} />
+                          <Copy size={16} aria-hidden="true" />
+                          Duplicar
+                          <span className="sr-only">
+                            {" "}
+                            {result.investment.name}
+                          </span>
                         </button>
                         <button
-                          className="icon-button remove-button"
-                          aria-label={`Remover ${result.investment.name}`}
-                          title="Remover"
+                          className="text-button danger"
                           disabled={!ready}
                           onClick={() => {
                             setRemoved(result.investment);
@@ -583,21 +406,33 @@ export default function InvestmentComparison({
                             addButton.current?.focus();
                           }}
                         >
-                          <Trash2 size={14} />
+                          <Trash2 size={16} aria-hidden="true" />
+                          Remover
+                          <span className="sr-only">
+                            {" "}
+                            {result.investment.name}
+                          </span>
                         </button>
                       </div>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </>
+                    </details>
+                    <button
+                      className="text-button edit-button"
+                      onClick={(event) =>
+                        openEditor(result.investment, event.currentTarget)
+                      }
+                      disabled={!ready}
+                    >
+                      <Pencil size={16} aria-hidden="true" />
+                      Editar
+                      <span className="sr-only"> {result.investment.name}</span>
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
           ) : (
             <div className="empty-state">
-              <SlidersHorizontal size={32} />
-              <h3>Seu próximo investimento começa aqui.</h3>
-              <p>
-                Adicione um CDB, LCI ou LCA para ver a estimativa de retorno.
-              </p>
+              <h3>Adicione sua primeira opção</h3>
               <button
                 className="button secondary"
                 onClick={() => {
@@ -605,59 +440,66 @@ export default function InvestmentComparison({
                   setNotice("Exemplos restaurados.");
                 }}
               >
-                Experimentar com exemplos
+                Usar exemplos
               </button>
             </div>
           )}
           <button
             ref={addButton}
-            className="add-offer"
-            onClick={() => openEditor()}
+            className="button add-offer"
+            onClick={(event) => openEditor(undefined, event.currentTarget)}
             disabled={!ready || results.length >= MAX_OFFERS}
           >
-            <Plus size={18} />
+            <Plus size={20} aria-hidden="true" />
             {results.length >= MAX_OFFERS
               ? "Limite de 12 opções atingido"
-              : "Adicionar opção de investimento"}
+              : "Adicionar investimento"}
           </button>
           {results.length > 0 && (
-            <section className="growth-section" aria-labelledby="chart-heading">
-              <div className="chart-heading">
-                <h3 id="chart-heading">Seu dinheiro ao longo do tempo</h3>
-                <span>Ganho líquido estimado (R$)</span>
-              </div>
+            <details className="growth-section">
+              <summary>
+                Evolução do ganho líquido
+                <ChevronDown size={18} aria-hidden="true" />
+              </summary>
               <GrowthChart
                 investments={scenario.investments}
                 cdiRate={scenario.cdiRate}
               />
-              <p className="chart-note">
-                Estimativa de resgate em cada prazo. Cada linha termina no
-                vencimento da opção.
-              </p>
-            </section>
+            </details>
           )}
-          <div className="comparison-footnote">
-            <span>
-              <Check size={14} /> Sem cadastro. Seus dados ficam com você.
-            </span>
-            <button
-              onClick={() => {
-                setScenario(createScenario(scenario.startDate));
-                setRemoved(null);
-                setNotice("Exemplos restaurados.");
-              }}
-              disabled={!ready}
-            >
-              <RotateCcw size={13} />
-              Restaurar exemplos
-            </button>
-          </div>
-        </div>
+          <details className="more-options">
+            <summary>
+              Mais opções
+              <ChevronDown size={18} aria-hidden="true" />
+            </summary>
+            <div className="detail-actions">
+              <button
+                className="text-button"
+                onClick={exportCsv}
+                disabled={!results.length}
+              >
+                <ArrowDownToLine size={18} aria-hidden="true" />
+                Exportar CSV
+              </button>
+              <button
+                className="text-button"
+                onClick={() => {
+                  setScenario(createScenario(scenario.startDate));
+                  setRemoved(null);
+                  setNotice("Exemplos restaurados.");
+                }}
+                disabled={!ready}
+              >
+                <RotateCcw size={18} aria-hidden="true" />
+                Restaurar exemplos
+              </button>
+            </div>
+          </details>
+        </section>
       </div>
       <noscript>
         <p className="comparison-warning">
-          Esta é uma simulação de exemplo. Ative o JavaScript para alterar
-          valores e salvar sua comparação.
+          Ative o JavaScript para editar e salvar esta simulação de exemplo.
         </p>
       </noscript>
       {editing && (
@@ -676,8 +518,8 @@ export default function InvestmentComparison({
             }));
             setNotice(
               editing.isNew
-                ? "Opção adicionada à comparação."
-                : "Opção atualizada.",
+                ? "Investimento adicionado."
+                : "Investimento atualizado.",
             );
             closeEditor();
           }}
