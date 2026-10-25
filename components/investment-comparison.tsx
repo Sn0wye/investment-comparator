@@ -1,170 +1,530 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { Plus } from 'lucide-react';
-
-import { Button } from '@/components/ui/button';
+import { useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle
-} from '@/components/ui/dialog';
+  ArrowDownToLine,
+  ChevronDown,
+  Copy,
+  Plus,
+  Trash2,
+  Pencil,
+  RotateCcw,
+  Moon,
+  Sun,
+} from "lucide-react";
 import {
-  Drawer,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle
-} from '@/components/ui/drawer';
-import { useMobile } from '@/hooks/use-mobile';
-import AppHeader from '@/components/app-header';
-import InvestmentCard from '@/components/investment-card';
-import AddInvestmentForm from '@/components/add-investment-form';
-import type { Investment } from '@/lib/types';
+  addMonths,
+  calculateInvestmentReturns,
+  money,
+  percent,
+} from "@/lib/calculations";
+import {
+  MAX_OFFERS,
+  STORAGE_KEY,
+  createScenario,
+  migrateLegacy,
+  parseScenario,
+} from "@/lib/storage";
+import type { Investment, Scenario } from "@/lib/types";
+import GrowthChart from "./growth-chart";
+import ScenarioForm from "./scenario-form";
 
-export default function InvestmentComparison() {
-  // Inicialize os estados com null para evitar diferenças de hidratação
-  const [investments, setInvestments] = useState<Investment[] | null>(null);
-  const [cdiRate, setCdiRate] = useState<number | null>(null);
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [isClient, setIsClient] = useState(false);
-  const isMobile = useMobile();
+const OfferDialog = dynamic(() => import("./offer-dialog"));
 
-  // Set default dates
-  const today = new Date();
-  const defaultEndDate = new Date();
-  defaultEndDate.setFullYear(defaultEndDate.getFullYear() + 1);
+export default function InvestmentComparison({
+  initialScenario,
+}: {
+  initialScenario: Scenario;
+}) {
+  const [scenario, setScenario] = useState(initialScenario);
+  const [ready, setReady] = useState(false);
+  const [canSave, setCanSave] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [saveStatus, setSaveStatus] = useState("");
+  const [editing, setEditing] = useState<{
+    investment: Investment;
+    isNew: boolean;
+  } | null>(null);
+  const [removed, setRemoved] = useState<Investment | null>(null);
+  const [dark, setDark] = useState(false);
+  const addButton = useRef<HTMLButtonElement>(null);
+  const returnFocus = useRef<HTMLElement | null>(null);
 
-  // Marque que estamos no cliente e inicialize os estados
   useEffect(() => {
-    setIsClient(true);
-
-    // Inicialize o CDI rate
-    const savedCdiRate = localStorage.getItem('cdiRate');
-    if (savedCdiRate) {
-      try {
-        setCdiRate(Number.parseFloat(savedCdiRate));
-      } catch (error) {
-        console.error('Erro ao carregar taxa CDI:', error);
-        setCdiRate(10.65);
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      const legacy = localStorage.getItem("investments");
+      if (raw) setScenario(parseScenario(raw));
+      else if (legacy) {
+        setScenario(
+          migrateLegacy(
+            legacy,
+            localStorage.getItem("cdiRate"),
+            initialScenario,
+          ),
+        );
+        setNotice(
+          "Sua comparação anterior foi importada. Valores e datas foram preservados.",
+        );
       }
-    } else {
-      setCdiRate(10.65);
-    }
-
-    // Inicialize os investimentos
-    const savedInvestments = localStorage.getItem('investments');
-    if (savedInvestments) {
-      try {
-        const parsedInvestments = JSON.parse(savedInvestments);
-        // Convert string dates back to Date objects
-        const processedInvestments = parsedInvestments.map((inv: any) => ({
-          ...inv,
-          purchaseDate: new Date(inv.purchaseDate || today),
-          endDate: new Date(inv.endDate)
-        }));
-        setInvestments(processedInvestments);
-      } catch (error) {
-        console.error('Erro ao carregar investimentos:', error);
+      setCanSave(true);
+      const theme = localStorage.getItem("rende-theme");
+      if (theme === "dark") {
+        setDark(true);
+        document.documentElement.dataset.theme = "dark";
       }
+    } catch {
+      setSaveStatus("Salvamento indisponível");
+      setNotice(
+        "Não foi possível carregar os dados salvos. Seus dados anteriores foram preservados; você pode usar os exemplos sem salvá-los.",
+      );
     }
-  }, []);
+    setReady(true);
+  }, [initialScenario]);
 
-  // Save investments to localStorage whenever they change
   useEffect(() => {
-    if (investments) {
-      localStorage.setItem('investments', JSON.stringify(investments));
+    if (!ready || !canSave) return;
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(scenario));
+      setSaveStatus("");
+    } catch {
+      setSaveStatus("Não salvo: armazenamento indisponível");
     }
-  }, [investments]);
+  }, [scenario, ready, canSave]);
 
-  // Save CDI rate to localStorage whenever it changes
-  useEffect(() => {
-    if (cdiRate !== null) {
-      localStorage.setItem('cdiRate', cdiRate.toString());
-    }
-  }, [cdiRate]);
+  const results = scenario.investments.map((investment) => ({
+    investment,
+    ...calculateInvestmentReturns(investment, scenario.cdiRate),
+  }));
+  const ranked = [...results].sort((a, b) => b.liquidReturn - a.liquidReturn);
+  const comparable = results.every(
+    (r) =>
+      r.investment.amount === results[0].investment.amount &&
+      r.investment.purchaseDate === results[0].investment.purchaseDate &&
+      r.investment.endDate === results[0].investment.endDate,
+  );
+  const tied =
+    ranked.length > 1 &&
+    Math.abs(ranked[0].liquidReturn - ranked[1].liquidReturn) < 0.01;
+  const examples =
+    scenario.investments.length > 0 &&
+    scenario.investments.every((i) => i.id.startsWith("example-"));
 
-  const handleAddInvestment = (investment: Investment) => {
-    if (investments) {
-      setInvestments([
-        ...investments,
-        {
-          ...investment,
-          id: Math.random().toString(36).substring(2, 9)
-        }
-      ]);
-    }
-    setShowAddForm(false);
-  };
-
-  const handleRemoveInvestment = (id: string) => {
-    if (investments) {
-      setInvestments(investments.filter(inv => inv.id !== id));
-    }
-  };
-
-  // Renderize um estado de carregamento até que o cliente esteja pronto
-  if (!isClient || investments === null || cdiRate === null) {
-    return (
-      <div className='container mx-auto py-8 px-4 flex justify-center items-center min-h-[50vh]'>
-        <p>Carregando...</p>
-      </div>
+  function openEditor(investment?: Investment, trigger?: HTMLElement) {
+    returnFocus.current = trigger ?? (document.activeElement as HTMLElement);
+    setEditing({
+      isNew: !investment,
+      investment: investment ?? {
+        id: crypto.randomUUID(),
+        name: "",
+        type: "CDB",
+        rate: 100,
+        isPercentOfCDI: true,
+        amount: scenario.amount,
+        purchaseDate: scenario.startDate,
+        endDate: addMonths(scenario.startDate, scenario.months),
+      },
+    });
+  }
+  function closeEditor() {
+    setEditing(null);
+    requestAnimationFrame(() =>
+      (returnFocus.current?.isConnected
+        ? returnFocus.current
+        : addButton.current
+      )?.focus(),
     );
+  }
+  function exportCsv() {
+    const cell = (value: string | number) =>
+      `"${String(value)
+        .replace(/^[\s]*[=+@\-]/, "'$&")
+        .replaceAll('"', '""')}"`;
+    const rows = [
+      [
+        "Opção",
+        "Tipo",
+        "Valor aplicado",
+        "Aplicação",
+        "Vencimento",
+        "Taxa",
+        "Modalidade",
+        "CDI anual simulado",
+        "Ganho bruto",
+        "IR",
+        "IOF",
+        "Valor líquido",
+      ],
+      ...results.map((r) => [
+        r.investment.name,
+        r.investment.type,
+        r.investment.amount,
+        r.investment.purchaseDate,
+        r.investment.endDate,
+        r.investment.rate,
+        r.investment.isPercentOfCDI ? "% CDI" : "% a.a.",
+        scenario.cdiRate,
+        r.grossReturn.toFixed(2),
+        r.taxAmount.toFixed(2),
+        r.iofAmount.toFixed(2),
+        r.liquidValue.toFixed(2),
+      ]),
+    ];
+    const url = URL.createObjectURL(
+      new Blob(
+        ["\uFEFF" + rows.map((row) => row.map(cell).join(";")).join("\r\n")],
+        { type: "text/csv;charset=utf-8;" },
+      ),
+    );
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "rende-comparacao.csv";
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setNotice("Comparação exportada em CSV.");
   }
 
   return (
-    <div suppressHydrationWarning>
-      <AppHeader cdiRate={cdiRate} onCdiRateChange={setCdiRate} />
-
-      <div className='container mx-auto px-4 pb-8'>
-        <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8'>
-          {investments.map(investment => (
-            <InvestmentCard
-              key={investment.id}
-              investment={investment}
-              cdiRate={cdiRate}
-              onRemove={() => handleRemoveInvestment(investment.id)}
-            />
-          ))}
-
-          <Button
-            variant='outline'
-            className='h-[300px] border-dashed border-neutral-200 dark:border-neutral-700 flex flex-col gap-2 hover:border-neutral-300 dark:hover:border-neutral-500'
-            onClick={() => setShowAddForm(true)}
+    <section
+      id="simulador"
+      tabIndex={-1}
+      aria-label="Simulador de renda fixa"
+      className="simulator"
+    >
+      <div className="workspace-grid">
+        <aside className="scenario-panel" aria-labelledby="scenario-title">
+          <h2 id="scenario-title">Sua simulação</h2>
+          <ScenarioForm
+            scenario={scenario}
+            ready={ready}
+            onApply={(next) => {
+              setScenario(next);
+              setNotice(
+                `Simulação atualizada: ${money(next.amount)} por ${next.months} meses. Confira os valores líquidos.`,
+              );
+            }}
+          />
+        </aside>
+        <section
+          className="comparison-panel"
+          aria-labelledby="comparison-title"
+        >
+          <div className="comparison-heading">
+            <h2 id="comparison-title">Valor líquido no vencimento</h2>
+            <button
+              className="icon-button"
+              aria-label={dark ? "Ativar tema claro" : "Ativar tema escuro"}
+              onClick={() => {
+                const next = !dark;
+                setDark(next);
+                document.documentElement.dataset.theme = next
+                  ? "dark"
+                  : "light";
+                try {
+                  localStorage.setItem("rende-theme", next ? "dark" : "light");
+                } catch {
+                  /* Theme works without storage. */
+                }
+              }}
+            >
+              {dark ? (
+                <Sun aria-hidden="true" size={20} />
+              ) : (
+                <Moon aria-hidden="true" size={20} />
+              )}
+            </button>
+          </div>
+          {examples && (
+            <p className="example-note">
+              Opções de exemplo. Edite as taxas ou adicione a sua.
+            </p>
+          )}
+          <p className="storage-warning" role="status" aria-atomic="true">
+            {saveStatus}
+          </p>
+          <div className="notice">
+            <p role="status" aria-atomic="true">
+              {notice}
+            </p>
+            {removed && (
+              <button
+                className="text-button"
+                onClick={() => {
+                  setScenario((s) => ({
+                    ...s,
+                    investments: [...s.investments, removed],
+                  }));
+                  setRemoved(null);
+                  setNotice("Opção restaurada.");
+                }}
+                disabled={results.length >= MAX_OFFERS}
+              >
+                Desfazer remoção
+              </button>
+            )}
+          </div>
+          {!comparable && (
+            <p className="comparison-warning">
+              Valores ou datas diferentes. Use “Aplicar a todas” para comparar
+              nas mesmas condições. A ordem considera o ganho em reais.
+            </p>
+          )}
+          {tied && comparable && (
+            <p className="example-note">
+              As primeiras opções têm o mesmo ganho líquido.
+            </p>
+          )}
+          {results.length ? (
+            <div className="offers-list">
+              {ranked.map((result, index) => (
+                <article
+                  className="offer-row"
+                  key={result.investment.id}
+                  aria-labelledby={`offer-${result.investment.id}`}
+                >
+                  <div className="offer-main">
+                    <div className="offer-identity">
+                      <h3 id={`offer-${result.investment.id}`}>
+                        {result.investment.name}
+                      </h3>
+                      <p>
+                        {percent(result.investment.rate)}{" "}
+                        {result.investment.isPercentOfCDI ? "do CDI" : "ao ano"}
+                      </p>
+                      {index === 0 &&
+                        comparable &&
+                        results.length > 1 &&
+                        !tied && (
+                          <span className="best-label">
+                            Maior ganho líquido
+                          </span>
+                        )}
+                    </div>
+                    <div className="offer-value">
+                      <strong>
+                        <span className="sr-only">Valor líquido: </span>
+                        {money(result.liquidValue)}
+                      </strong>
+                      <span>Ganho de {money(result.liquidReturn)}</span>
+                    </div>
+                  </div>
+                  <div className="offer-bottom">
+                    <details className="offer-details">
+                      <summary>
+                        Detalhes
+                        <span className="sr-only">
+                          {" "}
+                          de {result.investment.name}
+                        </span>
+                        <ChevronDown size={16} aria-hidden="true" />
+                      </summary>
+                      <dl className="breakdown">
+                        <div>
+                          <dt>Valor aplicado</dt>
+                          <dd>{money(result.investment.amount)}</dd>
+                        </div>
+                        <div>
+                          <dt>Ganho bruto</dt>
+                          <dd>{money(result.grossReturn)}</dd>
+                        </div>
+                        <div>
+                          <dt>Imposto de renda ({percent(result.irRate)})</dt>
+                          <dd>{money(result.taxAmount)}</dd>
+                        </div>
+                        <div>
+                          <dt>IOF</dt>
+                          <dd>{money(result.iofAmount)}</dd>
+                        </div>
+                        <div>
+                          <dt>Prazo</dt>
+                          <dd>{result.days} dias</dd>
+                        </div>
+                        <div>
+                          <dt>Ganho líquido</dt>
+                          <dd>{percent(result.netPercent)}</dd>
+                        </div>
+                        <div>
+                          <dt>Aplicação</dt>
+                          <dd>
+                            {result.investment.purchaseDate
+                              .split("-")
+                              .reverse()
+                              .join("/")}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>Vencimento</dt>
+                          <dd>
+                            {result.investment.endDate
+                              .split("-")
+                              .reverse()
+                              .join("/")}
+                          </dd>
+                        </div>
+                      </dl>
+                      <div className="detail-actions">
+                        <button
+                          className="text-button"
+                          disabled={!ready || results.length >= MAX_OFFERS}
+                          onClick={() => {
+                            setScenario((s) => ({
+                              ...s,
+                              investments: [
+                                ...s.investments,
+                                {
+                                  ...result.investment,
+                                  id: crypto.randomUUID(),
+                                  name: `${result.investment.name.slice(0, 72)} (cópia)`,
+                                },
+                              ],
+                            }));
+                            setNotice(
+                              "Opção duplicada. Edite a taxa para comparar.",
+                            );
+                          }}
+                        >
+                          <Copy size={16} aria-hidden="true" />
+                          Duplicar
+                          <span className="sr-only">
+                            {" "}
+                            {result.investment.name}
+                          </span>
+                        </button>
+                        <button
+                          className="text-button danger"
+                          disabled={!ready}
+                          onClick={() => {
+                            setRemoved(result.investment);
+                            setScenario((s) => ({
+                              ...s,
+                              investments: s.investments.filter(
+                                (i) => i.id !== result.investment.id,
+                              ),
+                            }));
+                            setNotice(`${result.investment.name} removido.`);
+                            addButton.current?.focus();
+                          }}
+                        >
+                          <Trash2 size={16} aria-hidden="true" />
+                          Remover
+                          <span className="sr-only">
+                            {" "}
+                            {result.investment.name}
+                          </span>
+                        </button>
+                      </div>
+                    </details>
+                    <button
+                      className="text-button edit-button"
+                      onClick={(event) =>
+                        openEditor(result.investment, event.currentTarget)
+                      }
+                      disabled={!ready}
+                    >
+                      <Pencil size={16} aria-hidden="true" />
+                      Editar
+                      <span className="sr-only"> {result.investment.name}</span>
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="empty-state">
+              <h3>Adicione sua primeira opção</h3>
+              <button
+                className="button secondary"
+                onClick={() => {
+                  setScenario(createScenario(scenario.startDate));
+                  setNotice("Exemplos restaurados.");
+                }}
+              >
+                Usar exemplos
+              </button>
+            </div>
+          )}
+          <button
+            ref={addButton}
+            className="button add-offer"
+            onClick={(event) => openEditor(undefined, event.currentTarget)}
+            disabled={!ready || results.length >= MAX_OFFERS}
           >
-            <Plus className='h-8 w-8' />
-            <span>Adicionar Investimento</span>
-          </Button>
-        </div>
-
-        {isMobile ? (
-          <Drawer open={showAddForm} onOpenChange={setShowAddForm}>
-            <DrawerContent>
-              <DrawerHeader>
-                <DrawerTitle>Adicionar Novo Investimento</DrawerTitle>
-              </DrawerHeader>
-              <AddInvestmentForm
-                onAdd={handleAddInvestment}
-                onCancel={() => setShowAddForm(false)}
-                cdiRate={cdiRate}
+            <Plus size={20} aria-hidden="true" />
+            {results.length >= MAX_OFFERS
+              ? "Limite de 12 opções atingido"
+              : "Adicionar investimento"}
+          </button>
+          {results.length > 0 && (
+            <details className="growth-section">
+              <summary>
+                Evolução do ganho líquido
+                <ChevronDown size={18} aria-hidden="true" />
+              </summary>
+              <GrowthChart
+                investments={scenario.investments}
+                cdiRate={scenario.cdiRate}
               />
-            </DrawerContent>
-          </Drawer>
-        ) : (
-          <Dialog open={showAddForm} onOpenChange={setShowAddForm}>
-            <DialogContent className='sm:max-w-[600px] p-0'>
-              <DialogHeader className='px-6 pt-6'>
-                <DialogTitle>Adicionar Novo Investimento</DialogTitle>
-              </DialogHeader>
-              <AddInvestmentForm
-                onAdd={handleAddInvestment}
-                onCancel={() => setShowAddForm(false)}
-                cdiRate={cdiRate}
-              />
-            </DialogContent>
-          </Dialog>
-        )}
+            </details>
+          )}
+          <details className="more-options">
+            <summary>
+              Mais opções
+              <ChevronDown size={18} aria-hidden="true" />
+            </summary>
+            <div className="detail-actions">
+              <button
+                className="text-button"
+                onClick={exportCsv}
+                disabled={!results.length}
+              >
+                <ArrowDownToLine size={18} aria-hidden="true" />
+                Exportar CSV
+              </button>
+              <button
+                className="text-button"
+                onClick={() => {
+                  setScenario(createScenario(scenario.startDate));
+                  setRemoved(null);
+                  setNotice("Exemplos restaurados.");
+                }}
+                disabled={!ready}
+              >
+                <RotateCcw size={18} aria-hidden="true" />
+                Restaurar exemplos
+              </button>
+            </div>
+          </details>
+        </section>
       </div>
-    </div>
+      <noscript>
+        <p className="comparison-warning">
+          Ative o JavaScript para editar e salvar esta simulação de exemplo.
+        </p>
+      </noscript>
+      {editing && (
+        <OfferDialog
+          investment={editing.investment}
+          isNew={editing.isNew}
+          onClose={closeEditor}
+          onSave={(investment) => {
+            setScenario((s) => ({
+              ...s,
+              investments: editing.isNew
+                ? [...s.investments, investment]
+                : s.investments.map((i) =>
+                    i.id === investment.id ? investment : i,
+                  ),
+            }));
+            setNotice(
+              editing.isNew
+                ? "Investimento adicionado."
+                : "Investimento atualizado.",
+            );
+            closeEditor();
+          }}
+        />
+      )}
+    </section>
   );
 }
