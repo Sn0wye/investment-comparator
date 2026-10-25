@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { X } from "lucide-react";
+import { X, ChevronDown } from "lucide-react";
 import { isInvestment } from "@/lib/storage";
 import type { Investment } from "@/lib/types";
+import { useFormErrors } from "./form-errors";
 
 export default function OfferDialog({
   investment,
@@ -18,12 +19,32 @@ export default function OfferDialog({
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [error, setError] = useState("");
+  const { errors, update, submit } = useFormErrors();
+  const accessibility = (name: string) => ({
+    "aria-invalid": Boolean(errors[name]),
+    "aria-describedby": errors[name] ? `offer-${name}-error` : undefined,
+  });
+  const fieldError = (name: string) =>
+    errors[name] ? (
+      <span
+        className="field-error"
+        id={`offer-${name}-error`}
+        aria-live="polite"
+      >
+        {errors[name]}
+      </span>
+    ) : null;
   const [isCdi, setIsCdi] = useState(investment.isPercentOfCDI);
   useEffect(() => {
     const element = dialog.current;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     element?.showModal();
     element?.querySelector<HTMLInputElement>('input[name="name"]')?.focus();
-    return () => element?.close();
+    return () => {
+      element?.close();
+      document.body.style.overflow = previousOverflow;
+    };
   }, []);
   return (
     <dialog
@@ -31,6 +52,28 @@ export default function OfferDialog({
       onCancel={onClose}
       className="offer-dialog"
       aria-labelledby="dialog-title"
+      onKeyDown={(event) => {
+        if (event.key !== "Tab") return;
+        const targets = Array.from(
+          event.currentTarget.querySelectorAll<HTMLElement>(
+            "button, input, select, summary, [tabindex]",
+          ),
+        ).filter(
+          (element) =>
+            element.tabIndex >= 0 &&
+            !element.hasAttribute("disabled") &&
+            element.checkVisibility(),
+        );
+        const first = targets[0],
+          last = targets[targets.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last?.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first?.focus();
+        }
+      }}
       onClick={(event) => {
         if (event.target === event.currentTarget) {
           const rect = event.currentTarget.getBoundingClientRect();
@@ -46,7 +89,6 @@ export default function OfferDialog({
     >
       <div className="dialog-heading">
         <div>
-          <p className="section-kicker">Sua próxima comparação</p>
           <h2 id="dialog-title">
             {isNew ? "Adicionar opção" : "Editar opção"}
           </h2>
@@ -57,12 +99,22 @@ export default function OfferDialog({
           onClick={onClose}
           aria-label="Fechar"
         >
-          <X size={20} />
+          <X size={20} aria-hidden="true" />
         </button>
       </div>
       <form
+        noValidate
+        onBlur={(event) => {
+          if (event.target instanceof HTMLInputElement)
+            update(event.currentTarget, event.target.name);
+        }}
+        onInput={(event) => {
+          setError("");
+          update(event.currentTarget);
+        }}
         onSubmit={(event) => {
           event.preventDefault();
+          if (!submit(event.currentTarget)) return;
           const data = new FormData(event.currentTarget);
           const result: Investment = {
             id: investment.id,
@@ -86,6 +138,7 @@ export default function OfferDialog({
         <label className="field">
           Nome da opção
           <input
+            {...accessibility("name")}
             name="name"
             autoFocus
             defaultValue={investment.name}
@@ -93,6 +146,7 @@ export default function OfferDialog({
             maxLength={80}
             placeholder="Ex.: CDB do meu banco"
           />
+          {fieldError("name")}
         </label>
         <div className="form-grid">
           <label className="field">
@@ -118,7 +172,9 @@ export default function OfferDialog({
             {isCdi ? "Taxa (% do CDI)" : "Taxa (% ao ano)"}
             <input
               key={String(isCdi)}
+              {...accessibility("rate")}
               name="rate"
+              inputMode="decimal"
               type="number"
               min="0"
               max={isCdi ? 300 : 100}
@@ -132,11 +188,20 @@ export default function OfferDialog({
               }
               required
             />
+            {fieldError("rate")}
           </label>
+        </div>
+        <details className="offer-settings">
+          <summary>
+            Valor e datas
+            <ChevronDown size={18} aria-hidden="true" />
+          </summary>
           <label className="field">
             Valor aplicado (R$)
             <input
+              {...accessibility("amount")}
               name="amount"
+              inputMode="decimal"
               type="number"
               min="0.01"
               max="1000000000"
@@ -144,31 +209,33 @@ export default function OfferDialog({
               defaultValue={investment.amount}
               required
             />
+            {fieldError("amount")}
           </label>
-        </div>
-        <div className="form-grid">
-          <label className="field">
-            Data da aplicação
-            <input
-              name="purchaseDate"
-              type="date"
-              defaultValue={investment.purchaseDate}
-              required
-            />
-          </label>
-          <label className="field">
-            Vencimento
-            <input
-              name="endDate"
-              type="date"
-              defaultValue={investment.endDate}
-              required
-            />
-          </label>
-        </div>
-        <p className="field-help">
-          O imposto é calculado automaticamente pelo tipo e prazo.
-        </p>
+          <div className="form-grid">
+            <label className="field">
+              Data da aplicação
+              <input
+                {...accessibility("purchaseDate")}
+                name="purchaseDate"
+                type="date"
+                defaultValue={investment.purchaseDate}
+                required
+              />
+              {fieldError("purchaseDate")}
+            </label>
+            <label className="field">
+              Vencimento
+              <input
+                {...accessibility("endDate")}
+                name="endDate"
+                type="date"
+                defaultValue={investment.endDate}
+                required
+              />
+              {fieldError("endDate")}
+            </label>
+          </div>
+        </details>
         {error && (
           <p role="alert" className="error-message">
             {error}

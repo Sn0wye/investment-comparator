@@ -1,4 +1,4 @@
-import { ArrowUpRight, ChartNoAxesCombined } from "lucide-react";
+import { ChartNoAxesCombined } from "lucide-react";
 import InvestmentComparison from "@/components/investment-comparison";
 import { createScenario } from "@/lib/storage";
 
@@ -13,7 +13,11 @@ export default function Home() {
         <div className="header-inner">
           <a className="brand" href="/" aria-label="Rende, início">
             <span className="brand-symbol">
-              <ChartNoAxesCombined size={24} strokeWidth={2.5} />
+              <ChartNoAxesCombined
+                aria-hidden="true"
+                size={24}
+                strokeWidth={2.5}
+              />
             </span>
             rende<span className="brand-dot">.</span>
           </a>
@@ -21,44 +25,13 @@ export default function Home() {
             <a className="nav-active" href="#simulador">
               Comparador
             </a>
-            <a href="#como-funciona">
-              Como funciona <ArrowUpRight size={14} />
-            </a>
+            <a href="#como-funciona">Como funciona</a>
           </nav>
-          <span className="header-note">Seu próximo passo, bem calculado.</span>
         </div>
       </header>
       <main className="shell">
         <section className="intro" aria-labelledby="page-title">
-          <div>
-            <p className="intro-kicker">
-              <span /> Menos dúvida. Mais clareza.
-            </p>
-            <h1 id="page-title">
-              O que rende mais
-              <br />
-              para você?
-            </h1>
-            <p className="intro-description">
-              Coloque suas opções lado a lado e descubra
-              <br className="desktop-break" /> quanto fica com você depois dos
-              impostos.
-            </p>
-          </div>
-          <div className="intro-aside">
-            <span className="mini-chart" aria-hidden="true">
-              <i />
-              <i />
-              <i />
-              <i />
-              <i />
-            </span>
-            <p>
-              A taxa é só o começo.
-              <br />
-              <strong>Compare o resultado.</strong>
-            </p>
-          </div>
+          <h1 id="page-title">Compare investimentos</h1>
         </section>
         <InvestmentComparison initialScenario={initialScenario} />
         <section
@@ -66,18 +39,7 @@ export default function Home() {
           id="como-funciona"
           aria-labelledby="method-title"
         >
-          <div>
-            <p className="section-kicker">Por trás dos números</p>
-            <h2 id="method-title">
-              Uma comparação
-              <br />
-              sem letras miúdas.
-            </h2>
-            <p>
-              Uma estimativa para entender suas opções.
-              <br />A decisão continua sendo sua.
-            </p>
-          </div>
+          <h2 id="method-title">Como funciona</h2>
           <div className="explanations">
             <details>
               <summary>Como o rendimento é calculado?</summary>
@@ -101,19 +63,11 @@ export default function Home() {
               </p>
               <p>
                 Consulte as regras de{" "}
-                <a
-                  href="https://www.caixa.gov.br/voce/poupanca-e-investimentos/tesouro-direto/Paginas/default.aspx"
-                  target="_blank"
-                  rel="noreferrer"
-                >
+                <a href="https://www.caixa.gov.br/voce/poupanca-e-investimentos/tesouro-direto/Paginas/default.aspx">
                   tributação de renda fixa
                 </a>{" "}
                 e de{" "}
-                <a
-                  href="https://borainvestir.b3.com.br/tipos-de-investimentos/renda-fixa/lci-lca-e-lc/investimentos-isentos-como-declarar-lci-e-lca-corretamente-no-imposto-de-renda-2026/"
-                  target="_blank"
-                  rel="noreferrer"
-                >
+                <a href="https://borainvestir.b3.com.br/tipos-de-investimentos/renda-fixa/lci-lca-e-lc/investimentos-isentos-como-declarar-lci-e-lca-corretamente-no-imposto-de-renda-2026/">
                   isenção de LCI/LCA
                 </a>
                 .
@@ -142,7 +96,6 @@ export default function Home() {
       </main>
       <footer className="site-footer">
         <span className="footer-brand">rende.</span>
-        <p>Mais clareza para o seu dinheiro.</p>
         <span>Simulação educativa. Não é recomendação de investimento.</span>
       </footer>
     </>

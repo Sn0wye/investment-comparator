@@ -22,6 +22,14 @@ Next.js 16 App Router exports the site to `out/`. `pnpm start` serves that direc
 
 The page, examples, results, and SVG chart are rendered at build time. The example application date is the build date and is editable. JavaScript enables editing and restores browser-local data after hydration. Without JavaScript the example comparison and methodology remain readable. Fonts use the system stack; no remote font fetch is required. The offer dialog is loaded on demand, and reduced-motion preferences disable CSS animation.
 
+## Interface and accessibility
+
+The main flow is amount, term, and ranked net returns. CDI/date settings, offer details, the growth chart, and export/reset actions expand only when needed. The chart includes a data table and distinct line patterns.
+
+Controls have visible focus, at least 44px touch targets, and inline errors linked to their fields. Invalid collapsed fields expand and receive focus. The modal contains keyboard focus and restores it to its trigger on close. Layouts support narrow screens, enlarged text, dark mode, reduced motion/transparency, increased contrast, and forced colors.
+
+Verification included a 320px viewport with 200% text, keyboard navigation, invalid form submission, iPhone Safari simulation, and automated accessibility checks. These checks do not replace a full VoiceOver/TalkBack user test. Android device verification was unavailable in this environment.
+
 ## Checks
 
 ```sh
