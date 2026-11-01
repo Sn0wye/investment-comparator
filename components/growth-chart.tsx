@@ -1,3 +1,5 @@
+"use client";
+import { useRef, useState } from "react";
 import { calculateInvestmentReturns, money } from "@/lib/calculations";
 import type { Investment } from "@/lib/types";
 
@@ -49,6 +51,32 @@ export default function GrowthChart({
     notation: "compact",
     maximumFractionDigits: 1,
   });
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [day, setDay] = useState<number | null>(null);
+  const xOf = (d: number) => L + (d / longest) * (R - L);
+  const pointAt = (clientX: number) => {
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const x = ((clientX - rect.left) / rect.width) * W;
+    const d = Math.round(((x - L) / (R - L)) * longest);
+    setDay(Math.min(longest, Math.max(0, d)));
+  };
+  const hover =
+    day === null
+      ? null
+      : investments.map((investment, index) => {
+          const ended = day > finals[index].days;
+          return {
+            investment,
+            ended,
+            value: calculateInvestmentReturns(
+              investment,
+              cdiRate,
+              Math.min(day, finals[index].days),
+            ).liquidReturn,
+            color: COLORS[index % COLORS.length],
+          };
+        });
 
   return (
     <section className="growth" aria-labelledby="growth-title">
@@ -67,10 +95,31 @@ export default function GrowthChart({
         className="chart-scroll"
         tabIndex={0}
         role="region"
-        aria-label="Gráfico de ganho líquido ao longo do prazo"
+        aria-label="Gráfico de ganho líquido ao longo do prazo. Use as setas para percorrer os dias."
+        onKeyDown={(e) => {
+          const step = e.shiftKey ? 30 : 7;
+          if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+            e.preventDefault();
+            setDay((d) =>
+              Math.min(
+                longest,
+                Math.max(0, (d ?? 0) + (e.key === "ArrowRight" ? step : -step)),
+              ),
+            );
+          } else if (e.key === "Home") setDay(0);
+          else if (e.key === "End") setDay(longest);
+          else if (e.key === "Escape") setDay(null);
+        }}
+        onBlur={() => setDay(null)}
       >
         <svg
+          ref={svgRef}
           viewBox={`0 0 ${W} ${H}`}
+          onPointerMove={(e) => pointAt(e.clientX)}
+          onPointerDown={(e) => pointAt(e.clientX)}
+          onPointerLeave={(e) => {
+            if (e.pointerType === "mouse") setDay(null);
+          }}
           role="img"
           aria-labelledby="growth-title"
           aria-describedby="growth-description"
@@ -133,7 +182,52 @@ export default function GrowthChart({
               className="chart-line"
             />
           ))}
+          {hover && day !== null && (
+            <g className="chart-hover">
+              <line
+                x1={xOf(day)}
+                x2={xOf(day)}
+                y1={T}
+                y2={B}
+                className="chart-cursor"
+              />
+              {hover.map((h) =>
+                h.ended ? null : (
+                  <circle
+                    key={h.investment.id}
+                    cx={xOf(day)}
+                    cy={y(h.value)}
+                    r="5"
+                    fill={h.color}
+                    className="chart-dot"
+                  />
+                ),
+              )}
+            </g>
+          )}
         </svg>
+        {hover && day !== null && (
+          <div
+            className="chart-tip"
+            role="status"
+            aria-live="polite"
+            style={{
+              left: `${(xOf(day) / W) * 100}%`,
+              translate: xOf(day) > W / 2 ? "calc(-100% - 14px) 0" : "14px 0",
+            }}
+          >
+            <strong>{day} dias</strong>
+            <ul>
+              {hover.map((h) => (
+                <li key={h.investment.id} data-ended={h.ended || undefined}>
+                  <i style={{ background: h.color }} />
+                  <span>{h.investment.name}</span>
+                  <b>{money(h.value)}</b>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
       <details className="chart-data">
         <summary>Ver valores em tabela</summary>
