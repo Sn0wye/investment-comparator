@@ -1,4 +1,3 @@
-import { ChartNoAxesCombined } from "lucide-react";
 import InvestmentComparison from "@/components/investment-comparison";
 import { createScenario } from "@/lib/storage";
 
@@ -7,95 +6,67 @@ export default function Home() {
   return (
     <>
       <a href="#simulador" className="skip-link">
-        Pular para o simulador
+        Pular para o comparador
       </a>
-      <header className="site-header">
-        <div className="header-inner">
-          <a className="brand" href="/" aria-label="Rende, início">
-            <span className="brand-symbol">
-              <ChartNoAxesCombined
-                aria-hidden="true"
-                size={24}
-                strokeWidth={2.5}
-              />
-            </span>
-            rende<span className="brand-dot">.</span>
-          </a>
-          <nav aria-label="Navegação principal">
-            <a className="nav-active" href="#simulador">
-              Comparador
-            </a>
-            <a href="#como-funciona">Como funciona</a>
-          </nav>
-        </div>
-      </header>
       <main className="shell">
-        <section className="intro" aria-labelledby="page-title">
-          <h1 id="page-title">Compare investimentos</h1>
-        </section>
         <InvestmentComparison initialScenario={initialScenario} />
         <section
-          className="methodology"
+          className="method"
           id="como-funciona"
           aria-labelledby="method-title"
         >
-          <h2 id="method-title">Como funciona</h2>
-          <div className="explanations">
-            <details>
-              <summary>Como o rendimento é calculado?</summary>
+          <h2 id="method-title">Como a conta é feita</h2>
+          <div className="method-grid">
+            <article>
+              <h3>Rendimento</h3>
               <p>
-                Usamos juros compostos, aporte único e taxa constante. Para % do
-                CDI, aplicamos o percentual à taxa diária equivalente do CDI.
-                Estimamos dias úteis como dias corridos × 252 / 365, sem
-                calendário de feriados. O resultado real pode variar. Não
-                incluímos taxas, inflação, aportes mensais ou mudanças futuras
-                do CDI.
+                Juros compostos, aporte único e taxa constante. Para % do CDI, o
+                percentual multiplica a taxa diária equivalente do CDI. Dias
+                úteis são estimados como dias corridos × 252 / 365. Não entram
+                taxas, inflação, aportes mensais nem mudanças futuras do CDI.
               </p>
-            </details>
-            <details>
-              <summary>Quais impostos entram na conta?</summary>
+            </article>
+            <article>
+              <h3>Impostos</h3>
               <p>
-                Para CDB, o IR incide sobre o ganho após IOF: 22,5% até 180
-                dias, 20% de 181 a 360, 17,5% de 361 a 720 e 15% acima de 720
-                dias. Aplicamos IOF regressivo em resgates de CDB antes de 30
-                dias. LCI/LCA são simuladas com isenção de IR para pessoa
-                física.
+                CDB paga IR sobre o ganho: 22,5% até 180 dias, 20% até 360,
+                17,5% até 720 e 15% acima disso. Resgate antes de 30 dias também
+                paga IOF regressivo. LCI e LCA são isentas de IR para pessoa
+                física, por isso mostramos a taxa de CDB equivalente.
               </p>
+            </article>
+            <article>
+              <h3>O que não entra</h3>
               <p>
-                Consulte as regras de{" "}
-                <a href="https://www.caixa.gov.br/voce/poupanca-e-investimentos/tesouro-direto/Paginas/default.aspx">
-                  tributação de renda fixa
-                </a>{" "}
-                e de{" "}
-                <a href="https://borainvestir.b3.com.br/tipos-de-investimentos/renda-fixa/lci-lca-e-lc/investimentos-isentos-como-declarar-lci-e-lca-corretamente-no-imposto-de-renda-2026/">
-                  isenção de LCI/LCA
-                </a>
-                .
+                Liquidez, carência, risco do emissor e cobertura do FGC. Maior
+                valor líquido não é sinônimo de melhor escolha. As opções
+                iniciais são exemplos, não ofertas.
               </p>
-            </details>
-            <details>
-              <summary>Maior rendimento significa melhor investimento?</summary>
+            </article>
+            <article>
+              <h3>Seus dados</h3>
               <p>
-                Não necessariamente. Liquidez, carência, risco do emissor e
-                cobertura do FGC também importam. O simulador compara retorno
-                estimado e não verifica disponibilidade ou prazo mínimo dos
-                produtos. As opções iniciais são exemplos, não ofertas ou
-                recomendações.
+                Ficam só neste navegador, sem cadastro e sem servidor. Limpar os
+                dados do site apaga a comparação. Dá para exportar em CSV a
+                qualquer momento.
               </p>
-            </details>
-            <details>
-              <summary>Onde minha simulação fica salva?</summary>
-              <p>
-                Somente neste navegador, sem cadastro. Os dados não são enviados
-                a um servidor. Limpar os dados do navegador remove a simulação.
-                Você pode exportar os resultados em CSV.
-              </p>
-            </details>
+            </article>
           </div>
+          <p className="method-sources">
+            Fontes:{" "}
+            <a href="https://www.caixa.gov.br/voce/poupanca-e-investimentos/tesouro-direto/Paginas/default.aspx">
+              tributação de renda fixa
+            </a>{" "}
+            e{" "}
+            <a href="https://borainvestir.b3.com.br/tipos-de-investimentos/renda-fixa/lci-lca-e-lc/investimentos-isentos-como-declarar-lci-e-lca-corretamente-no-imposto-de-renda-2026/">
+              isenção de LCI/LCA
+            </a>
+            .
+          </p>
         </section>
       </main>
       <footer className="site-footer">
-        <span className="footer-brand">rende.</span>
+        <span className="wordmark">rende</span>
         <span>Simulação educativa. Não é recomendação de investimento.</span>
       </footer>
     </>

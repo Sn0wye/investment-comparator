@@ -1,23 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import {
-  ArrowDownToLine,
-  ChevronDown,
-  Copy,
-  Plus,
-  Trash2,
-  Pencil,
-  RotateCcw,
-  Moon,
-  Sun,
-} from "lucide-react";
+import { ArrowDownToLine, Moon, Plus, RotateCcw, Sun } from "lucide-react";
 import {
   addMonths,
   calculateInvestmentReturns,
   money,
-  percent,
 } from "@/lib/calculations";
 import {
   MAX_OFFERS,
@@ -28,9 +17,29 @@ import {
 } from "@/lib/storage";
 import type { Investment, Scenario } from "@/lib/types";
 import GrowthChart from "./growth-chart";
-import ScenarioForm from "./scenario-form";
+import OfferRow from "./offer-row";
+import ScenarioControls from "./scenario-controls";
 
 const OfferDialog = dynamic(() => import("./offer-dialog"));
+
+function applyScenario(
+  s: Scenario,
+  patch: Partial<Pick<Scenario, "amount" | "months" | "startDate" | "cdiRate">>,
+): Scenario {
+  const next = { ...s, ...patch };
+  if (patch.cdiRate !== undefined && Object.keys(patch).length === 1)
+    return next;
+  const endDate = addMonths(next.startDate, next.months);
+  return {
+    ...next,
+    investments: next.investments.map((i) => ({
+      ...i,
+      amount: next.amount,
+      purchaseDate: next.startDate,
+      endDate,
+    })),
+  };
+}
 
 export default function InvestmentComparison({
   initialScenario,
@@ -50,6 +59,8 @@ export default function InvestmentComparison({
   const [dark, setDark] = useState(false);
   const addButton = useRef<HTMLButtonElement>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
+  const list = useRef<HTMLOListElement>(null);
+  const positions = useRef(new Map<string, number>());
 
   useEffect(() => {
     try {
@@ -64,21 +75,17 @@ export default function InvestmentComparison({
             initialScenario,
           ),
         );
-        setNotice(
-          "Sua comparação anterior foi importada. Valores e datas foram preservados.",
-        );
+        setNotice("Sua comparação anterior foi importada.");
       }
       setCanSave(true);
       const theme = localStorage.getItem("rende-theme");
-      if (theme === "dark") {
-        setDark(true);
-        document.documentElement.dataset.theme = "dark";
-      }
+      const isDark = theme
+        ? theme === "dark"
+        : matchMedia("(prefers-color-scheme: dark)").matches;
+      setDark(isDark);
+      document.documentElement.dataset.theme = isDark ? "dark" : "light";
     } catch {
-      setSaveStatus("Salvamento indisponível");
-      setNotice(
-        "Não foi possível carregar os dados salvos. Seus dados anteriores foram preservados; você pode usar os exemplos sem salvá-los.",
-      );
+      setSaveStatus("Não salvo: armazenamento indisponível.");
     }
     setReady(true);
   }, [initialScenario]);
@@ -89,15 +96,36 @@ export default function InvestmentComparison({
       localStorage.setItem(STORAGE_KEY, JSON.stringify(scenario));
       setSaveStatus("");
     } catch {
-      setSaveStatus("Não salvo: armazenamento indisponível");
+      setSaveStatus("Não salvo: armazenamento indisponível.");
     }
   }, [scenario, ready, canSave]);
+
+  // Rows keep their DOM node across re-ranking; slide them from where they were.
+  useLayoutEffect(() => {
+    const rows = list.current?.querySelectorAll<HTMLElement>("[data-id]");
+    if (!rows) return;
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    rows.forEach((row) => {
+      const id = row.dataset.id as string;
+      const top = row.offsetTop;
+      const prev = positions.current.get(id);
+      if (prev !== undefined && prev !== top && !reduce)
+        row.animate(
+          [{ transform: `translateY(${prev - top}px)` }, { transform: "none" }],
+          { duration: 420, easing: "cubic-bezier(.2,.8,.2,1)" },
+        );
+      positions.current.set(id, top);
+    });
+  });
 
   const results = scenario.investments.map((investment) => ({
     investment,
     ...calculateInvestmentReturns(investment, scenario.cdiRate),
   }));
   const ranked = [...results].sort((a, b) => b.liquidReturn - a.liquidReturn);
+  const best = ranked[0];
+  const runnerUp = ranked[1];
+  const maxGross = Math.max(...ranked.map((r) => r.grossReturn), 0);
   const comparable = results.every(
     (r) =>
       r.investment.amount === results[0].investment.amount &&
@@ -105,11 +133,15 @@ export default function InvestmentComparison({
       r.investment.endDate === results[0].investment.endDate,
   );
   const tied =
-    ranked.length > 1 &&
-    Math.abs(ranked[0].liquidReturn - ranked[1].liquidReturn) < 0.01;
-  const examples =
-    scenario.investments.length > 0 &&
-    scenario.investments.every((i) => i.id.startsWith("example-"));
+    !!runnerUp && Math.abs(best.liquidReturn - runnerUp.liquidReturn) < 0.01;
+
+  const updateInvestment = (id: string, patch: Partial<Investment>) =>
+    setScenario((s) => ({
+      ...s,
+      investments: s.investments.map((i) =>
+        i.id === id ? { ...i, ...patch } : i,
+      ),
+    }));
 
   function openEditor(investment?: Investment, trigger?: HTMLElement) {
     returnFocus.current = trigger ?? (document.activeElement as HTMLElement);
@@ -136,6 +168,28 @@ export default function InvestmentComparison({
       )?.focus(),
     );
   }
+  function remove(investment: Investment) {
+    setRemoved(investment);
+    setScenario((s) => ({
+      ...s,
+      investments: s.investments.filter((i) => i.id !== investment.id),
+    }));
+    setNotice(`${investment.name} removido.`);
+  }
+  function duplicate(investment: Investment) {
+    setScenario((s) => ({
+      ...s,
+      investments: [
+        ...s.investments,
+        {
+          ...investment,
+          id: crypto.randomUUID(),
+          name: `${investment.name.slice(0, 72)} (cópia)`,
+        },
+      ],
+    }));
+    setNotice("Opção duplicada. Ajuste a taxa para comparar.");
+  }
   function exportCsv() {
     const cell = (value: string | number) =>
       `"${String(value)
@@ -156,7 +210,7 @@ export default function InvestmentComparison({
         "IOF",
         "Valor líquido",
       ],
-      ...results.map((r) => [
+      ...ranked.map((r) => [
         r.investment.name,
         r.investment.type,
         r.investment.amount,
@@ -173,7 +227,7 @@ export default function InvestmentComparison({
     ];
     const url = URL.createObjectURL(
       new Blob(
-        ["\uFEFF" + rows.map((row) => row.map(cell).join(";")).join("\r\n")],
+        ["﻿" + rows.map((row) => row.map(cell).join(";")).join("\r\n")],
         { type: "text/csv;charset=utf-8;" },
       ),
     );
@@ -189,324 +243,199 @@ export default function InvestmentComparison({
     <section
       id="simulador"
       tabIndex={-1}
-      aria-label="Simulador de renda fixa"
       className="simulator"
+      aria-label="Comparador de renda fixa"
     >
-      <div className="workspace-grid">
-        <aside className="scenario-panel" aria-labelledby="scenario-title">
-          <h2 id="scenario-title">Sua simulação</h2>
-          <ScenarioForm
-            scenario={scenario}
-            ready={ready}
-            onApply={(next) => {
-              setScenario(next);
-              setNotice(
-                `Simulação atualizada: ${money(next.amount)} por ${next.months} meses. Confira os valores líquidos.`,
-              );
-            }}
-          />
-        </aside>
-        <section
-          className="comparison-panel"
-          aria-labelledby="comparison-title"
+      <header className="top">
+        <a className="wordmark" href="/" aria-label="Rende, início">
+          rende
+        </a>
+        <button
+          type="button"
+          className="icon-button"
+          aria-label={dark ? "Usar tema claro" : "Usar tema escuro"}
+          onClick={() => {
+            const next = !dark;
+            setDark(next);
+            document.documentElement.dataset.theme = next ? "dark" : "light";
+            try {
+              localStorage.setItem("rende-theme", next ? "dark" : "light");
+            } catch {
+              /* Theme works without storage. */
+            }
+          }}
         >
-          <div className="comparison-heading">
-            <h2 id="comparison-title">Valor líquido no vencimento</h2>
+          {dark ? (
+            <Sun size={20} aria-hidden="true" />
+          ) : (
+            <Moon size={20} aria-hidden="true" />
+          )}
+        </button>
+      </header>
+
+      <h1>Quanto fica com você?</h1>
+
+      <ScenarioControls
+        scenario={scenario}
+        ready={ready}
+        onChange={(patch) => setScenario((s) => applyScenario(s, patch))}
+      />
+
+      <div className="ranking" aria-labelledby="verdict">
+        <p
+          id="verdict"
+          className="verdict"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          {!best ? (
+            "Adicione uma opção para comparar."
+          ) : !comparable ? (
+            <>
+              Valores ou datas diferentes entre as opções. A ordem considera o
+              ganho em reais.
+            </>
+          ) : tied ? (
+            <>
+              <b>{best.investment.name}</b> e <b>{runnerUp.investment.name}</b>{" "}
+              empatam em {money(best.liquidValue)} líquidos.
+            </>
+          ) : runnerUp ? (
+            <>
+              <b>{best.investment.name}</b> deixa{" "}
+              <b>{money(best.liquidReturn - runnerUp.liquidReturn)}</b> a mais
+              que {runnerUp.investment.name}.
+            </>
+          ) : (
+            <>
+              <b>{best.investment.name}</b> rende {money(best.liquidReturn)}{" "}
+              líquidos. Adicione outra opção para comparar.
+            </>
+          )}
+        </p>
+        <p className="status" role="status" aria-atomic="true">
+          {saveStatus || notice}
+          {removed && (
             <button
-              className="icon-button"
-              aria-label={dark ? "Ativar tema claro" : "Ativar tema escuro"}
+              type="button"
+              className="link-button"
               onClick={() => {
-                const next = !dark;
-                setDark(next);
-                document.documentElement.dataset.theme = next
-                  ? "dark"
-                  : "light";
-                try {
-                  localStorage.setItem("rende-theme", next ? "dark" : "light");
-                } catch {
-                  /* Theme works without storage. */
+                setScenario((s) => ({
+                  ...s,
+                  investments: [...s.investments, removed],
+                }));
+                setRemoved(null);
+                setNotice("Opção restaurada.");
+              }}
+              disabled={results.length >= MAX_OFFERS}
+            >
+              Desfazer
+            </button>
+          )}
+        </p>
+
+        {ranked.length > 0 ? (
+          <ol className="offers" ref={list}>
+            {ranked.map((result, index) => (
+              <OfferRow
+                key={result.investment.id}
+                result={result}
+                rank={index + 1}
+                share={maxGross > 0 ? result.grossReturn / maxGross : 0}
+                netShare={maxGross > 0 ? result.liquidReturn / maxGross : 0}
+                leader={index === 0 && comparable && !tied && ranked.length > 1}
+                ready={ready}
+                onRate={(rate, isPercentOfCDI) =>
+                  updateInvestment(result.investment.id, {
+                    rate,
+                    isPercentOfCDI,
+                  })
                 }
+                onEdit={(trigger) => openEditor(result.investment, trigger)}
+              />
+            ))}
+          </ol>
+        ) : (
+          <div className="empty">
+            <p>Nenhuma opção na comparação.</p>
+            <button
+              type="button"
+              className="button"
+              onClick={() => {
+                setScenario(createScenario(scenario.startDate));
+                setNotice("Exemplos restaurados.");
               }}
             >
-              {dark ? (
-                <Sun aria-hidden="true" size={20} />
-              ) : (
-                <Moon aria-hidden="true" size={20} />
-              )}
+              Usar exemplos
             </button>
           </div>
-          {examples && (
-            <p className="example-note">
-              Opções de exemplo. Edite as taxas ou adicione a sua.
-            </p>
-          )}
-          <p className="storage-warning" role="status" aria-atomic="true">
-            {saveStatus}
-          </p>
-          <div className="notice">
-            <p role="status" aria-atomic="true">
-              {notice}
-            </p>
-            {removed && (
-              <button
-                className="text-button"
-                onClick={() => {
-                  setScenario((s) => ({
-                    ...s,
-                    investments: [...s.investments, removed],
-                  }));
-                  setRemoved(null);
-                  setNotice("Opção restaurada.");
-                }}
-                disabled={results.length >= MAX_OFFERS}
-              >
-                Desfazer remoção
-              </button>
-            )}
-          </div>
-          {!comparable && (
-            <p className="comparison-warning">
-              Valores ou datas diferentes. Use “Aplicar a todas” para comparar
-              nas mesmas condições. A ordem considera o ganho em reais.
-            </p>
-          )}
-          {tied && comparable && (
-            <p className="example-note">
-              As primeiras opções têm o mesmo ganho líquido.
-            </p>
-          )}
-          {results.length ? (
-            <div className="offers-list">
-              {ranked.map((result, index) => (
-                <article
-                  className="offer-row"
-                  key={result.investment.id}
-                  aria-labelledby={`offer-${result.investment.id}`}
-                >
-                  <div className="offer-main">
-                    <div className="offer-identity">
-                      <h3 id={`offer-${result.investment.id}`}>
-                        {result.investment.name}
-                      </h3>
-                      <p>
-                        {percent(result.investment.rate)}{" "}
-                        {result.investment.isPercentOfCDI ? "do CDI" : "ao ano"}
-                      </p>
-                      {index === 0 &&
-                        comparable &&
-                        results.length > 1 &&
-                        !tied && (
-                          <span className="best-label">
-                            Maior ganho líquido
-                          </span>
-                        )}
-                    </div>
-                    <div className="offer-value">
-                      <strong>
-                        <span className="sr-only">Valor líquido: </span>
-                        {money(result.liquidValue)}
-                      </strong>
-                      <span>Ganho de {money(result.liquidReturn)}</span>
-                    </div>
-                  </div>
-                  <div className="offer-bottom">
-                    <details className="offer-details">
-                      <summary>
-                        Detalhes
-                        <span className="sr-only">
-                          {" "}
-                          de {result.investment.name}
-                        </span>
-                        <ChevronDown size={16} aria-hidden="true" />
-                      </summary>
-                      <dl className="breakdown">
-                        <div>
-                          <dt>Valor aplicado</dt>
-                          <dd>{money(result.investment.amount)}</dd>
-                        </div>
-                        <div>
-                          <dt>Ganho bruto</dt>
-                          <dd>{money(result.grossReturn)}</dd>
-                        </div>
-                        <div>
-                          <dt>Imposto de renda ({percent(result.irRate)})</dt>
-                          <dd>{money(result.taxAmount)}</dd>
-                        </div>
-                        <div>
-                          <dt>IOF</dt>
-                          <dd>{money(result.iofAmount)}</dd>
-                        </div>
-                        <div>
-                          <dt>Prazo</dt>
-                          <dd>{result.days} dias</dd>
-                        </div>
-                        <div>
-                          <dt>Ganho líquido</dt>
-                          <dd>{percent(result.netPercent)}</dd>
-                        </div>
-                        <div>
-                          <dt>Aplicação</dt>
-                          <dd>
-                            {result.investment.purchaseDate
-                              .split("-")
-                              .reverse()
-                              .join("/")}
-                          </dd>
-                        </div>
-                        <div>
-                          <dt>Vencimento</dt>
-                          <dd>
-                            {result.investment.endDate
-                              .split("-")
-                              .reverse()
-                              .join("/")}
-                          </dd>
-                        </div>
-                      </dl>
-                      <div className="detail-actions">
-                        <button
-                          className="text-button"
-                          disabled={!ready || results.length >= MAX_OFFERS}
-                          onClick={() => {
-                            setScenario((s) => ({
-                              ...s,
-                              investments: [
-                                ...s.investments,
-                                {
-                                  ...result.investment,
-                                  id: crypto.randomUUID(),
-                                  name: `${result.investment.name.slice(0, 72)} (cópia)`,
-                                },
-                              ],
-                            }));
-                            setNotice(
-                              "Opção duplicada. Edite a taxa para comparar.",
-                            );
-                          }}
-                        >
-                          <Copy size={16} aria-hidden="true" />
-                          Duplicar
-                          <span className="sr-only">
-                            {" "}
-                            {result.investment.name}
-                          </span>
-                        </button>
-                        <button
-                          className="text-button danger"
-                          disabled={!ready}
-                          onClick={() => {
-                            setRemoved(result.investment);
-                            setScenario((s) => ({
-                              ...s,
-                              investments: s.investments.filter(
-                                (i) => i.id !== result.investment.id,
-                              ),
-                            }));
-                            setNotice(`${result.investment.name} removido.`);
-                            addButton.current?.focus();
-                          }}
-                        >
-                          <Trash2 size={16} aria-hidden="true" />
-                          Remover
-                          <span className="sr-only">
-                            {" "}
-                            {result.investment.name}
-                          </span>
-                        </button>
-                      </div>
-                    </details>
-                    <button
-                      className="text-button edit-button"
-                      onClick={(event) =>
-                        openEditor(result.investment, event.currentTarget)
-                      }
-                      disabled={!ready}
-                    >
-                      <Pencil size={16} aria-hidden="true" />
-                      Editar
-                      <span className="sr-only"> {result.investment.name}</span>
-                    </button>
-                  </div>
-                </article>
-              ))}
-            </div>
-          ) : (
-            <div className="empty-state">
-              <h3>Adicione sua primeira opção</h3>
-              <button
-                className="button secondary"
-                onClick={() => {
-                  setScenario(createScenario(scenario.startDate));
-                  setNotice("Exemplos restaurados.");
-                }}
-              >
-                Usar exemplos
-              </button>
-            </div>
-          )}
+        )}
+
+        <div className="ranking-actions">
           <button
             ref={addButton}
-            className="button add-offer"
-            onClick={(event) => openEditor(undefined, event.currentTarget)}
+            type="button"
+            className="button primary"
+            onClick={(e) => openEditor(undefined, e.currentTarget)}
             disabled={!ready || results.length >= MAX_OFFERS}
           >
-            <Plus size={20} aria-hidden="true" />
+            <Plus size={18} aria-hidden="true" />
             {results.length >= MAX_OFFERS
-              ? "Limite de 12 opções atingido"
-              : "Adicionar investimento"}
+              ? "Limite de 12 opções"
+              : "Adicionar opção"}
           </button>
-          {results.length > 0 && (
-            <details className="growth-section">
-              <summary>
-                Evolução do ganho líquido
-                <ChevronDown size={18} aria-hidden="true" />
-              </summary>
-              <GrowthChart
-                investments={scenario.investments}
-                cdiRate={scenario.cdiRate}
-              />
-            </details>
-          )}
-          <details className="more-options">
-            <summary>
-              Mais opções
-              <ChevronDown size={18} aria-hidden="true" />
-            </summary>
-            <div className="detail-actions">
-              <button
-                className="text-button"
-                onClick={exportCsv}
-                disabled={!results.length}
-              >
-                <ArrowDownToLine size={18} aria-hidden="true" />
-                Exportar CSV
-              </button>
-              <button
-                className="text-button"
-                onClick={() => {
-                  setScenario(createScenario(scenario.startDate));
-                  setRemoved(null);
-                  setNotice("Exemplos restaurados.");
-                }}
-                disabled={!ready}
-              >
-                <RotateCcw size={18} aria-hidden="true" />
-                Restaurar exemplos
-              </button>
-            </div>
-          </details>
-        </section>
+          <button
+            type="button"
+            className="button quiet"
+            onClick={exportCsv}
+            disabled={!results.length}
+          >
+            <ArrowDownToLine size={18} aria-hidden="true" />
+            CSV
+          </button>
+          <button
+            type="button"
+            className="button quiet"
+            onClick={() => {
+              setScenario(createScenario(scenario.startDate));
+              setRemoved(null);
+              setNotice("Exemplos restaurados.");
+            }}
+            disabled={!ready}
+          >
+            <RotateCcw size={18} aria-hidden="true" />
+            Exemplos
+          </button>
+        </div>
       </div>
+
+      {ranked.length > 0 && (
+        <GrowthChart
+          investments={ranked.map((r) => r.investment)}
+          cdiRate={scenario.cdiRate}
+        />
+      )}
+
       <noscript>
-        <p className="comparison-warning">
-          Ative o JavaScript para editar e salvar esta simulação de exemplo.
+        <p className="status">
+          Ative o JavaScript para editar e salvar esta comparação.
         </p>
       </noscript>
+
       {editing && (
         <OfferDialog
           investment={editing.investment}
           isNew={editing.isNew}
+          canDuplicate={results.length < MAX_OFFERS}
           onClose={closeEditor}
+          onRemove={() => {
+            remove(editing.investment);
+            closeEditor();
+          }}
+          onDuplicate={() => {
+            duplicate(editing.investment);
+            closeEditor();
+          }}
           onSave={(investment) => {
             setScenario((s) => ({
               ...s,
@@ -517,9 +446,7 @@ export default function InvestmentComparison({
                   ),
             }));
             setNotice(
-              editing.isNew
-                ? "Investimento adicionado."
-                : "Investimento atualizado.",
+              editing.isNew ? "Opção adicionada." : "Opção atualizada.",
             );
             closeEditor();
           }}

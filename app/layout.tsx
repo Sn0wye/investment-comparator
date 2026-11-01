@@ -1,22 +1,31 @@
 import type { Metadata } from "next";
+import { Bricolage_Grotesque } from "next/font/google";
 import "./globals.css";
+
+const font = Bricolage_Grotesque({
+  subsets: ["latin"],
+  axes: ["opsz"],
+  display: "swap",
+  variable: "--font",
+});
+
 export const metadata: Metadata = {
-  title: "Rende | Comparador de investimentos",
+  title: "Rende | Quanto fica com você",
   description:
-    "Compare CDB, LCI e LCA pelo rendimento líquido. Simule prazos, taxas e impostos em uma comparação simples, salva no seu navegador.",
+    "Compare CDB, LCI e LCA pelo que sobra depois do imposto. Mude valor, prazo e taxas e veja o ranking mudar na hora. Tudo salvo no seu navegador.",
   openGraph: {
-    title: "Rende | Comparador de investimentos",
-    description:
-      "Veja quanto fica com você. Compare renda fixa depois dos impostos.",
+    title: "Rende | Quanto fica com você",
+    description: "Compare renda fixa pelo valor líquido, na hora.",
     locale: "pt_BR",
     type: "website",
   },
 };
+
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" className={font.variable}>
       <body>{children}</body>
     </html>
   );
