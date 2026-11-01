@@ -1,6 +1,6 @@
 # Rende
 
-A Portuguese-language fixed-income comparator for CDB and LCI/LCA. Compare estimated net returns, edit or duplicate offers, apply a shared scenario, inspect a growth chart, and export CSV. No account or backend is required.
+A Portuguese-language fixed-income comparator for CDB and LCI/LCA. Change amount, term, or any rate and watch the ranking re-sort live by net value after tax. Inspect a growth chart and export CSV. No account or backend is required.
 
 ## Development
 
@@ -24,11 +24,11 @@ The page, examples, results, and SVG chart are rendered at build time. The examp
 
 ## Interface and accessibility
 
-The main flow is amount, term, and ranked net returns. CDI/date settings, offer details, the growth chart, and export/reset actions expand only when needed. The chart includes a data table and distinct line patterns.
+There is no apply button. Amount, term chips, CDI, and each option's rate are live controls: every change re-ranks the list, slides rows into their new position, tweens the net values, and rewrites the one-line verdict at the top. Each row shows the net value at maturity, a stacked bar of gross gain split into net (green) and tax (red), and either the income tax taken or, for exempt LCI/LCA, the equivalent CDB rate. Name, type, principal, and dates are edited in a dialog that also duplicates or removes the option.
 
-Controls have visible focus, at least 44px touch targets, and inline errors linked to their fields. Invalid collapsed fields expand and receive focus. The modal contains keyboard focus and restores it to its trigger on close. Layouts support narrow screens, enlarged text, dark mode, reduced motion/transparency, increased contrast, and forced colors.
+Typography is Bricolage Grotesque, self-hosted at build time by `next/font`; no runtime font request leaves the origin. Theme follows the system preference and can be toggled.
 
-Verification included a 320px viewport with 200% text, keyboard navigation, invalid form submission, iPhone Safari simulation, and automated accessibility checks. These checks do not replace a full VoiceOver/TalkBack user test. Android device verification was unavailable in this environment.
+Controls have visible focus, at least 44px touch targets, and inline errors linked to their fields. The modal contains keyboard focus and restores it to its trigger on close. Row reordering, number tweens, bar growth, and dialog entry are disabled under `prefers-reduced-motion`. Layouts support narrow screens, enlarged text, dark mode, reduced transparency, increased contrast, and forced colors. The chart includes a data table and distinct line patterns.
 
 ## Checks
 
@@ -59,8 +59,10 @@ CI runs `pnpm audit` against all dependencies, including development tools, and 
 
 ## Structure
 
-- `app/page.tsx`: static page, navigation, and calculation methodology.
-- `components/investment-comparison.tsx`: scenario controls, ranking, browser persistence, and CSV export.
+- `app/page.tsx`: static page and calculation methodology.
+- `components/investment-comparison.tsx`: state, ranking, row reorder animation, browser persistence, and CSV export.
+- `components/scenario-controls.tsx`: live amount, term, CDI, and date controls.
+- `components/offer-row.tsx`: ranked row with inline rate editing and gross/net bar.
 - `components/offer-dialog.tsx`: native modal with validation and focus management.
 - `components/growth-chart.tsx`: accessible SVG projections without a chart dependency.
 - `lib/calculations.ts`: pure date, compound-return, IR, and IOF calculations.

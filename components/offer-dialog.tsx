@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { X, ChevronDown } from "lucide-react";
+import { X, ChevronDown, Copy, Trash2 } from "lucide-react";
 import { isInvestment } from "@/lib/storage";
 import type { Investment } from "@/lib/types";
 import { useFormErrors } from "./form-errors";
@@ -9,13 +9,19 @@ import { useFormErrors } from "./form-errors";
 export default function OfferDialog({
   investment,
   isNew,
+  canDuplicate,
   onSave,
   onClose,
+  onRemove,
+  onDuplicate,
 }: {
   investment: Investment;
   isNew: boolean;
+  canDuplicate: boolean;
   onSave: (investment: Investment) => void;
   onClose: () => void;
+  onRemove: () => void;
+  onDuplicate: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [error, setError] = useState("");
@@ -89,9 +95,7 @@ export default function OfferDialog({
     >
       <div className="dialog-heading">
         <div>
-          <h2 id="dialog-title">
-            {isNew ? "Adicionar opção" : "Editar opção"}
-          </h2>
+          <h2 id="dialog-title">{isNew ? "Nova opção" : investment.name}</h2>
         </div>
         <button
           type="button"
@@ -242,11 +246,29 @@ export default function OfferDialog({
           </p>
         )}
         <div className="dialog-actions">
-          <button type="button" className="button secondary" onClick={onClose}>
-            Cancelar
-          </button>
+          {!isNew && (
+            <span className="dialog-secondary">
+              <button
+                type="button"
+                className="button quiet"
+                onClick={onDuplicate}
+                disabled={!canDuplicate}
+              >
+                <Copy size={16} aria-hidden="true" />
+                Duplicar
+              </button>
+              <button
+                type="button"
+                className="button quiet danger"
+                onClick={onRemove}
+              >
+                <Trash2 size={16} aria-hidden="true" />
+                Remover
+              </button>
+            </span>
+          )}
           <button className="button primary" type="submit">
-            {isNew ? "Adicionar à comparação" : "Salvar alterações"}
+            {isNew ? "Adicionar à comparação" : "Salvar"}
           </button>
         </div>
       </form>

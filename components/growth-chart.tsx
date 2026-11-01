@@ -2,13 +2,21 @@ import { calculateInvestmentReturns, money } from "@/lib/calculations";
 import type { Investment } from "@/lib/types";
 
 export const COLORS = [
-  "#2459d3",
-  "#168477",
-  "#bb6b2d",
-  "#8c55b5",
-  "#b84d6c",
-  "#65778e",
+  "#0f8a52",
+  "#2d5fa8",
+  "#b8651f",
+  "#7a4fb0",
+  "#b2436b",
+  "#5f6f7a",
 ];
+
+const W = 760;
+const H = 240;
+const L = 56;
+const R = 744;
+const T = 16;
+const B = 204;
+
 export default function GrowthChart({
   investments,
   cdiRate,
@@ -16,121 +24,117 @@ export default function GrowthChart({
   investments: Investment[];
   cdiRate: number;
 }) {
-  const longest = Math.max(
-    ...investments.map((i) => calculateInvestmentReturns(i, cdiRate).days),
-    1,
-  );
-  const series = investments.map((investment) => {
-    const duration = calculateInvestmentReturns(investment, cdiRate).days;
+  const finals = investments.map((i) => calculateInvestmentReturns(i, cdiRate));
+  const longest = Math.max(...finals.map((f) => f.days), 1);
+  const series = investments.map((investment, index) => {
+    const duration = finals[index].days;
     return Array.from({ length: 49 }, (_, step) => {
       const day = Math.round((duration * step) / 48);
       return {
-        x: 62 + (day / longest) * 658,
+        x: L + (day / longest) * (R - L),
         value: calculateInvestmentReturns(investment, cdiRate, day)
           .liquidReturn,
       };
     });
   });
-  const max = Math.max(...series.flat().map((point) => point.value), 1) * 1.12;
-  const y = (value: number) => 190 - (value / max) * 162;
+  const max = Math.max(...series.flat().map((p) => p.value), 1) * 1.08;
+  const y = (value: number) => B - (value / max) * (B - T);
+  const path = (points: { x: number; value: number }[]) =>
+    points
+      .map(
+        (p, i) => `${i ? "L" : "M"}${p.x.toFixed(1)},${y(p.value).toFixed(1)}`,
+      )
+      .join(" ");
+  const compact = new Intl.NumberFormat("pt-BR", {
+    notation: "compact",
+    maximumFractionDigits: 1,
+  });
+
   return (
-    <div className="chart-wrap">
+    <section className="growth" aria-labelledby="growth-title">
+      <div className="growth-head">
+        <h2 id="growth-title">Evolução do ganho líquido</h2>
+        <ul className="legend">
+          {investments.map((i, index) => (
+            <li key={i.id}>
+              <i style={{ background: COLORS[index % COLORS.length] }} />
+              {i.name}
+            </li>
+          ))}
+        </ul>
+      </div>
       <div
         className="chart-scroll"
         tabIndex={0}
         role="region"
-        aria-label="Gráfico de ganho líquido; role horizontalmente para ver todo o período"
+        aria-label="Gráfico de ganho líquido ao longo do prazo"
       >
         <svg
-          viewBox="0 0 750 228"
+          viewBox={`0 0 ${W} ${H}`}
           role="img"
           aria-labelledby="growth-title"
           aria-describedby="growth-description"
         >
-          <title id="growth-title">Evolução do ganho líquido estimado</title>
           <desc id="growth-description">
             {investments
               .map(
-                (i) =>
-                  `${i.name}: ${money(calculateInvestmentReturns(i, cdiRate).liquidReturn)} em ${calculateInvestmentReturns(i, cdiRate).days} dias.`,
+                (i, index) =>
+                  `${i.name}: ${money(finals[index].liquidReturn)} em ${finals[index].days} dias.`,
               )
               .join(" ")}
           </desc>
           {[0, 1, 2, 3].map((tick) => (
             <g key={tick}>
               <line
-                x1="62"
-                x2="720"
+                x1={L}
+                x2={R}
                 y1={y((max * tick) / 3)}
                 y2={y((max * tick) / 3)}
                 className="chart-grid"
               />
               <text
-                x="50"
+                x={L - 8}
                 y={y((max * tick) / 3) + 4}
                 textAnchor="end"
                 className="chart-label"
               >
-                {new Intl.NumberFormat("pt-BR", {
-                  notation: "compact",
-                  maximumFractionDigits: 1,
-                }).format((max * tick) / 3)}
+                {compact.format((max * tick) / 3)}
               </text>
             </g>
           ))}
           {[0, 1, 2, 3, 4].map((tick) => (
             <text
               key={tick}
-              x={62 + (tick / 4) * 658}
-              y="218"
-              textAnchor="middle"
+              x={L + (tick / 4) * (R - L)}
+              y={H - 8}
+              textAnchor={tick === 0 ? "start" : tick === 4 ? "end" : "middle"}
               className="chart-label"
             >
-              {Math.round((longest * tick) / 4)} d
+              {Math.round((longest * tick) / 4)} dias
             </text>
           ))}
+          {series[0] && (
+            <path
+              d={`${path(series[0])} L${series[0][48].x.toFixed(1)},${B} L${L},${B} Z`}
+              fill={COLORS[0]}
+              opacity="0.08"
+            />
+          )}
           {series.map((points, index) => (
             <path
               key={investments[index].id}
-              d={points
-                .map(
-                  (point, step) =>
-                    `${step ? "L" : "M"}${point.x.toFixed(2)},${y(point.value).toFixed(2)}`,
-                )
-                .join(" ")}
+              d={path(points)}
               fill="none"
               stroke={COLORS[index % COLORS.length]}
-              strokeWidth="2.8"
-              strokeDasharray={index === 0 ? undefined : `${3 + index * 2} 4`}
+              strokeWidth={index === 0 ? 3 : 2}
+              strokeDasharray={index === 0 ? undefined : `${4 + index * 2} 5`}
               strokeLinejoin="round"
               strokeLinecap="round"
+              className="chart-line"
             />
           ))}
         </svg>
       </div>
-      <div className="chart-legend">
-        {investments.map((i, index) => (
-          <span key={i.id}>
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 30 8"
-              style={{ width: "1.875rem", minWidth: 0, height: ".5rem" }}
-            >
-              <path
-                d="M0 4H30"
-                stroke={COLORS[index % COLORS.length]}
-                strokeWidth="3"
-                strokeDasharray={index === 0 ? undefined : `${3 + index * 2} 4`}
-              />
-            </svg>
-            {i.name}
-          </span>
-        ))}
-      </div>
-      <p className="chart-note">
-        Estimativa de resgate ao longo do prazo, sem garantia de liquidez antes
-        do vencimento.
-      </p>
       <details className="chart-data">
         <summary>Ver valores em tabela</summary>
         <div
@@ -143,19 +147,15 @@ export default function GrowthChart({
             <caption>Ganho líquido estimado por prazo</caption>
             <thead>
               <tr>
-                <th scope="col">Investimento</th>
+                <th scope="col">Opção</th>
                 <th scope="col">Dias</th>
                 <th scope="col">Ganho líquido</th>
               </tr>
             </thead>
-            {investments.map((investment) => (
+            {investments.map((investment, index) => (
               <tbody key={investment.id}>
                 {[0, 1, 2, 3, 4].map((step) => {
-                  const days = Math.round(
-                    (calculateInvestmentReturns(investment, cdiRate).days *
-                      step) /
-                      4,
-                  );
+                  const days = Math.round((finals[index].days * step) / 4);
                   return (
                     <tr key={step}>
                       {step === 0 && (
@@ -178,6 +178,10 @@ export default function GrowthChart({
           </table>
         </div>
       </details>
-    </div>
+      <p className="chart-note">
+        Resgate estimado a cada dia do prazo. Não garante liquidez antes do
+        vencimento.
+      </p>
+    </section>
   );
 }
