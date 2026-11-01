@@ -714,8 +714,72 @@ h3 {
   flex-shrink: 0;
 }
 .chart-scroll {
+  position: relative;
   overflow-x: auto;
   border-radius: 0.5rem;
+}
+.growth svg {
+  touch-action: pan-y;
+  cursor: crosshair;
+}
+.chart-cursor {
+  stroke: var(--muted);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+.chart-dot {
+  stroke: var(--surface);
+  stroke-width: 2;
+  animation: pop 0.2s var(--ease);
+}
+@keyframes pop {
+  from {
+    r: 0;
+  }
+}
+.chart-tip {
+  position: absolute;
+  top: 0.5rem;
+  pointer-events: none;
+  background: var(--ink);
+  color: var(--paper);
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.625rem;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  box-shadow: var(--shadow);
+  white-space: nowrap;
+  z-index: 1;
+  animation: drop 0.15s var(--ease);
+}
+.chart-tip strong {
+  display: block;
+  margin-bottom: 0.3rem;
+  font-variant-numeric: tabular-nums;
+}
+.chart-tip ul {
+  list-style: none;
+  display: grid;
+  gap: 0.2rem;
+}
+.chart-tip li {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.chart-tip li[data-ended] {
+  opacity: 0.55;
+}
+.chart-tip i {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.chart-tip b {
+  margin-left: auto;
+  padding-left: 0.75rem;
+  font-variant-numeric: tabular-nums;
 }
 .growth svg {
   display: block;
